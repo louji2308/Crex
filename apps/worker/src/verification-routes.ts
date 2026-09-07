@@ -9,10 +9,22 @@ import { runVerification, type VerificationDeps } from "./pipelines/verification
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/**
+ * Determines whether a string is a valid canonical UUID.
+ *
+ * @param value - The string to validate
+ * @returns `true` if `value` is a canonical UUID, `false` otherwise.
+ */
 function isUuid(value: string): boolean {
   return UUID_PATTERN.test(value);
 }
 
+/**
+ * Determines whether a project exists in the database.
+ *
+ * @param projectId - The project identifier to look up
+ * @returns `true` if the project exists, `false` otherwise.
+ */
 async function projectExists(
   db: D1Adapter,
   projectId: string,
@@ -33,6 +45,13 @@ export interface VerificationApi {
   handle(request: Request, path: string): Promise<Response | null>;
 }
 
+/**
+ * Creates a verification API backed by the provided environment and optional dependencies.
+ *
+ * @param env - The Worker environment containing the database binding
+ * @param deps - Optional overrides for the current-time provider, UUID generator, and project existence checker
+ * @returns An API for handling verification requests
+ */
 export function createVerificationApi(env: Env, deps?: Partial<VerificationApiDeps>): VerificationApi {
   const db = new D1Adapter(env.DB);
   const runRepo = new VerificationRunRepository(db);

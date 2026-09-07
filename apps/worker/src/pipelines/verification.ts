@@ -41,6 +41,13 @@ const PLATFORM_LIMITS: Record<string, { title?: number; description?: number }> 
   YOUTUBE_DESCRIPTION: { description: 5000 },
 };
 
+/**
+ * Verifies a generated asset against its project's claims, constraints, sponsor requirements, and platform rules.
+ *
+ * @param options - Identifies the project and generated asset to verify.
+ * @returns The verification run ID, overall result, and number of findings.
+ * @throws `CrexError` if the asset does not exist or does not belong to the specified project.
+ */
 export async function runVerification(
   deps: VerificationDeps,
   options: VerificationOptions,
@@ -136,6 +143,18 @@ export async function runVerification(
   return { runId, result, findingCount: findings.length };
 }
 
+/**
+ * Evaluates a generated component for claim fidelity, creator constraints, sponsor requirements, and platform limits.
+ *
+ * @param component - The generated component to evaluate
+ * @param asset - The generated asset containing the component
+ * @param claimMap - Claims referenced by the component
+ * @param evidenceMap - Evidence associated with each claim
+ * @param constraints - Creator constraints to evaluate
+ * @param sponsorRequirements - Sponsor requirements to enforce
+ * @param runId - Identifier of the verification run
+ * @returns Findings produced by the component checks
+ */
 function runChecksForComponent(
   deps: { uuid: () => string; now: () => string },
   component: GeneratedComponent,
@@ -334,11 +353,22 @@ function runChecksForComponent(
   return findings;
 }
 
+/**
+ * Extracts numeric values from text, including optional signs, decimals, percentages, currency symbols, and magnitude suffixes.
+ *
+ * @param text - The text to scan for numeric values
+ * @returns The numeric values found in `text`
+ */
 function extractNumbers(text: string): number[] {
   const matches = text.match(/-?\d+(?:\.\d+)?(?:[%$kKmM])?/g) ?? [];
   return matches.map((m) => parseFloat(m.replace(/[$,]/g, ""))).filter((n) => !Number.isNaN(n));
 }
 
+/**
+ * Determines whether two numeric values match within a one-percent relative difference.
+ *
+ * @returns `true` if the values are equal or differ by less than one percent, `false` otherwise.
+ */
 function numbersMatch(a: number, b: number): boolean {
   if (a === b) return true;
   if (a === 0 || b === 0) return false;
@@ -346,6 +376,13 @@ function numbersMatch(a: number, b: number): boolean {
   return relativeDiff < 0.01;
 }
 
+/**
+ * Measures the proportion of significant source words present in the generated text.
+ *
+ * @param source - The reference text whose words are compared
+ * @param generated - The text checked for matching words
+ * @returns A value from 0 to 1 representing the source-word overlap; 1 when the source has no significant words
+ */
 function computeKeywordOverlap(source: string, generated: string): number {
   const sourceWords = new Set(
     source
@@ -369,6 +406,13 @@ function computeKeywordOverlap(source: string, generated: string): number {
   return overlap / sourceWords.size;
 }
 
+/**
+ * Determines whether content satisfies the specified constraint.
+ *
+ * @param constraint - The constraint whose requirements are evaluated
+ * @param content - The content to check
+ * @returns `true` if the content satisfies the constraint, `false` otherwise
+ */
 function checkConstraintSatisfied(constraint: Constraint, content: string): boolean {
   const lowerContent = content.toLowerCase();
 

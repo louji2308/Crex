@@ -282,6 +282,13 @@ export default {
   },
 };
 
+/**
+ * Routes HTTP requests to health checks, workflow operations, AI analysis, and domain APIs.
+ *
+ * @param request - The incoming HTTP request.
+ * @param env - The worker environment containing service bindings and configuration.
+ * @returns The response generated for the matched route.
+ */
 async function handleRequest(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
   const path = url.pathname;
