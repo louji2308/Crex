@@ -2,10 +2,21 @@ import { execFile } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+let cliPathCache: string | null = null;
 
-const CLI_PATH = resolve(__dirname, "..", "python", "cli.py");
+function getCliPath(): string {
+  if (cliPathCache !== null) {
+    return cliPathCache;
+  }
+  const url = import.meta.url;
+  if (typeof url !== "string" || url.length === 0) {
+    throw new Error(
+      "C2PA python CLI path could not be resolved; the python CLI is only available in Node.js environments.",
+    );
+  }
+  cliPathCache = resolve(dirname(fileURLToPath(url)), "..", "python", "cli.py");
+  return cliPathCache;
+}
 
 export interface PythonCliArgs {
   inputFile: string;
@@ -26,7 +37,7 @@ function buildArgs(
   tool: "embed" | "verify",
   args: PythonCliArgs,
 ): string[] {
-  const parts: string[] = [CLI_PATH, tool, "--input", args.inputFile];
+  const parts: string[] = [getCliPath(), tool, "--input", args.inputFile];
 
   if (tool === "embed") {
     if (args.outputFile) {
