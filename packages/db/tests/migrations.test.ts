@@ -16,7 +16,10 @@ const TABLE_NAMES = [
   "verification_runs",
   "verification_findings",
   "workflow_state",
+  "ai_outputs",
 ];
+
+const MIGRATION_NAMES = listMigrations().map((file) => file.name);
 
 const openDbs: SqlDb[] = [];
 
@@ -60,7 +63,7 @@ describe("migrate", () => {
     const db = openMemoryDb();
     const result = await migrate(db);
 
-    expect(result.applied).toEqual(["0001_init.sql"]);
+    expect(result.applied).toEqual(MIGRATION_NAMES);
     expect(result.skipped).toEqual([]);
 
     for (const table of TABLE_NAMES) {
@@ -70,24 +73,24 @@ describe("migrate", () => {
     const migrationFile = listMigrations()[0];
     expect(migrationFile).toBeDefined();
     const record = await db.prepare("SELECT name, checksum, applied_at FROM _migrations").all();
-    expect(record).toHaveLength(1);
-    expect(record[0]).toMatchObject({ name: "0001_init.sql", checksum: migrationFile?.checksum });
+    expect(record).toHaveLength(MIGRATION_NAMES.length);
+    expect(record[0]).toMatchObject({ name: MIGRATION_NAMES[0], checksum: migrationFile?.checksum });
     expect(record[0]?.applied_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 
   it("re-running migrate is a no-op", async () => {
     const db = openMemoryDb();
     const first = await migrate(db);
-    expect(first.applied).toEqual(["0001_init.sql"]);
+    expect(first.applied).toEqual(MIGRATION_NAMES);
 
     const second = await migrate(db);
     expect(second.applied).toEqual([]);
-    expect(second.skipped).toEqual(["0001_init.sql"]);
+    expect(second.skipped).toEqual(MIGRATION_NAMES);
 
     const count = (await db.prepare("SELECT COUNT(*) AS count FROM _migrations").get()) as {
       count: number;
     };
-    expect(count.count).toBe(1);
+    expect(count.count).toBe(MIGRATION_NAMES.length);
 
     for (const table of TABLE_NAMES) {
       expect(await tableExists(db, table), `expected table ${table} to exist`).toBe(true);
@@ -112,6 +115,7 @@ describe("migrate", () => {
       "idx_verification_findings_asset_id",
       "idx_verification_findings_component_id",
       "idx_workflow_state_project_id",
+      "idx_ai_outputs_project",
     ];
     for (const index of expectedIndexes) {
       expect(await indexExists(db, index), `expected index ${index} to exist`).toBe(true);

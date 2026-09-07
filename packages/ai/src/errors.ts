@@ -1,4 +1,4 @@
-import { CrexError } from "@crex/core";
+import { CrexError } from "@crex/core/src/errors";
 
 export class ProviderRateLimitError extends CrexError {
   constructor(provider: string, message: string, options?: { cause?: unknown }) {

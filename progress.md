@@ -2,7 +2,7 @@
 
 ## Current Status
 
-**Phase:** Wave 2 IN PROGRESS — Worker C (apps/worker real shell) done
+**Phase:** Wave 2 IN PROGRESS — Worker C L1–L4 done (AI pipeline + AiOutput persistence + error model + env config)
 **Date:** September 7, 2026
 **Hackathon Deadline:** September 8, 2026 — 8:00 AM ET
 
@@ -12,7 +12,7 @@
 
 ```text
 Branch: main
-Commits: 5 (8 ahead of origin)
+Commits: in sync with origin (worker shell + L1–L4 pushed)
 Source Code: SUBSTANTIAL (packages/ + apps/worker)
 Specification: COMPLETE
 Architecture: DEFINED
@@ -35,10 +35,11 @@ Implementation Plan: DEFINED
 | docs/implementation/repository-audit.md | COMPLETE | Worker B deliverable |
 | docs/implementation/risk-register.md | COMPLETE | Worker C deliverable |
 | Source Code | IN PROGRESS | `packages/*` + `apps/worker` real shell |
-| Tests | IN PROGRESS | 369 tests green across 7 packages |
+| Tests | IN PROGRESS | 415 tests green across 7 packages |
 | Configuration | COMPLETE | pnpm workspace, tsconfig.base, package configs |
-| Database | COMPLETE | D1-compatible schema + migrations + adapters |
+| Database | COMPLETE | D1-compatible schema + migrations + adapters (+ ai_outputs) |
 | AI Providers | IMPLEMENTED | @crex/ai NVIDIA + Mistral fallback (36 tests) |
+| Worker AI Pipeline | IMPLEMENTED | `/ai/analyze` → real provider → validate → persist AiOutput (tested w/ stubbed fetch) |
 | Deployment | IN PROGRESS | apps/worker bindings (D1/R2/Workflows) + dry-run validated |
 
 ---
@@ -121,6 +122,12 @@ The approved architecture is:
 | `apps/worker` real shell (Worker C) | Sep 7 | Workflow class, D1/R2/Workflows bindings, HTTP routes, vitest-plugin harness — 19 worker tests |
 | Worker C HTTP API + workflow | Sep 7 | `POST/GET /workflows/source-to-release`, `/health`, real end-to-end workflow to COMPLETED validated |
 | Decision: wrangler-side D1 migrations | Sep 7 | `docs/implementation/decision-workflow-migrations.md` |
+| Worker C L1: env config | Sep 7 | AI provider `vars` in `wrangler.jsonc` + `.dev.vars.example`; `wrangler types` regenerated |
+| Worker C L2: infra boundary | Sep 7 | `statusToPhase` deduplicated → shared `mapInstanceStatusToPhase`; D1/R2 stay behind `@crex/infra` |
+| Worker C L3: error model | Sep 7 | `src/http.ts`: `toHttpStatus` map, `errorResponse`, `errorResponseForCode` (ApiError/CrexError contract); entire fetch handler wrapped; workflow FAILED persists `{code,message}` into `workflow_state.error` |
+| Worker C L4: AiOutput persistence | Sep 7 | Migration `0002_ai_outputs.sql` + `AiOutputRepository` (+ DB tests); `src/workflows/ai-output.ts` (`buildProviderOptions`, `aiConfigured`, `providerResultToAiOutput`, `parseAiOutput`, `runGenerationTask`) with unit tests; `POST /ai/analyze` route + integration tests (configured path via stubbed fetch → valid row in D1) |
+| AI task content schemas | Sep 7 | `@crex/schemas` adds `sourceUnderstandingSchema` (SEMANTIC_UNDERSTANDING) as provisional contract + `claimExtractionSchema`; wired as the generation `targetSchema` |
+| `@crex/ai` import hygiene | Sep 7 | `errors.ts` now deep-imports `@crex/core/src/errors` (was `@crex/core` index → `node:fs` config) so `@crex/ai` bundles under workerd; verified via dry-run + dev |
 
 ---
 
@@ -128,7 +135,8 @@ The approved architecture is:
 
 | Task | Owner | Status |
 |------|-------|--------|
-| Worker C remaining L1–L4 | Lead | L1 worker-bindings config next (post-commit) |
+| Worker C L1–L4 | Lead | IMPLEMENTED + TESTED (see Completed Work); remaining Wave 2 = D1 real provisioning + README provisioning docs + security review |
+| Wave 3 source ingestion | Lead | NOT STARTED |
 
 ---
 
@@ -142,22 +150,24 @@ None currently.
 
 ### Wave 2 — Real Infrastructure Foundation (IN PROGRESS)
 
-Worker C remaining tasks (lead-owned after this commit):
-- L1: worker-bindings config (finalize `wrangler.jsonc`; D1 `database_id` needed for real deploy).
-- L2: infra boundary (map which infra calls belong behind `@crex/infra` adapters; keep worker dependency direction clean).
-- L3: error model (align worker error envelopes with APIError/CrexError contract; status mapping).
-- L4: AiOutput → ProviderResult → WorkflowState alignment (worker workflow must persist validated AI outputs into D1 state).
+Worker C completed:
+- L1: worker-bindings env config final (`wrangler.jsonc` AI `vars`, `.dev.vars.example`, `migrations_dir`; `database_id` still placeholder for real deploy).
+- L2: infra boundary (shared workflow-status mapper; D1/R2 behind `@crex/infra`; `@crex/ai` workerd-safe deep imports).
+- L3: error model aligned to ApiError/CrexError (`src/http.ts`; workflow FAILED persists error; fetch handler normalized).
+- L4: AiOutput ↔ ProviderResult ↔ WorkflowState alignment (migration + repo + worker module + `/ai/analyze` route; configured path tested end-to-end with stubbed fetch).
 
-Then: full aggregate verification, docs (`.env.example`, README, progress), security review, push.
+Remaining in Wave 2:
+- Provision real D1 (`database_id`) + secrets to unlock live AI + deploy (needs Cloudflare credentials).
+- README: worker provisioning/运行 docs (`.dev.vars`, `wrangler d1 migrations apply`, routes).
+- Final security review (debounced prompt-injection/trust-model audit of AI output).
 
----
-
-## Known Issues
+Then Wave 3: source ingestion.### Known Issues
 
 1. D1 `database_id` in `wrangler.jsonc` is a placeholder — real deploy requires a provisioned D1 database + credentials.
 2. Hackathon deadline is Sept 8, 8:00 AM ET.
 3. `node:sqlite` is experimental in Node 24 — emits ExperimentalWarning in test output (local-only).
 4. Miniflare local Workflows retains completed instances only briefly; `Workflow.get()` on a finished instance can throw `instance.not_found` locally — worker GET route handles this (404).
+5. No NVIDIA/Mistral keys locally, so live AI calls are untested; `POST /ai/analyze` honestly returns 503 `AI_NOT_CONFIGURED` without keys, and the configured generation path is validated with a stubbed fetch in tests.
 
 ---
 
@@ -186,19 +196,23 @@ Then: full aggregate verification, docs (`.env.example`, README, progress), secu
 | Worker B DB deferral (Pydantic) | Sep 7 | Python/Pydantic models deferred; Wave 1 Worker B owns `packages/db` (D1-compatible SQLite) instead — divergence from baseline §12/spec §6 recorded here |
 | Wrangler-side D1 migrations | Sep 7 | Worker does NOT run in-app `migrate()` (node:fs unavailable in workerd); schema stays in `packages/db/migrations`, applied via `wrangler d1 migrations apply` — `decision-workflow-migrations.md` |
 | Worker tests use @cloudflare/vitest-plugin | Sep 7 | `readD1Migrations` → `applyD1Migrations` harness so worker integration tests run real schema on miniflare |
+| AI task content schemas provisional | Sep 7 | `sourceUnderstandingSchema` (+ `claimExtractionSchema`) added to `@crex/schemas` as canonical AI task content contracts; only SEMANTIC_UNDERSTANDING is wired into `/ai/analyze` — other `AI_TASK` values remain unwired and are rejected by the route (honest gating) |
+| Worker builds AI options locally | Sep 7 | `@crex/core/config` imports `node:fs`/`node:path` → unusable in workerd; `apps/worker/src/workflows/ai-output.ts` mirrors the default env-var names/values and reads through `Env` |
+| `@crex/ai` errors deep-import | Sep 7 | `packages/ai/src/errors.ts` now imports `@crex/core/src/errors` instead of the `@crex/core` index so `@crex/ai` bundles under workerd (index → `config.ts` → `node:fs`) |
+| `migrations_dir` in wrangler.jsonc | Sep 7 | `wrangler d1 migrations apply crex --local` verified against the shared `packages/db/migrations` dir |
 
 ---
 
 ## Test Status
 
-**369 tests passing** across 7 packages:
-- `@crex/schemas` — 127 (schema strictness, in/out conventions, JSON round-trip, api/domain)
+**415 tests passing** across 7 packages:
+- `@crex/schemas` — 135 (schema strictness, in/out conventions, JSON round-trip, api/domain, ai-tasks)
 - `@crex/tests` — 100 (contract conformance, cross-package db integration)
-- `@crex/db` — 32 (adapter, migrations, repos; real `node:sqlite` in-memory)
+- `@crex/db` — 33 (adapter, migrations, repos incl. ai_outputs; real `node:sqlite` in-memory)
 - `@crex/infra` — 37 (D1/R2 adapters on miniflare/workerd emulation)
 - `@crex/ai` — 36 (NVIDIA/Mistral clients, fallback, validation)
 - `@crex/core` — 18 (config, API envelopes, workflow transitions, errors)
-- `apps/worker` — 19 (HTTP routes + real end-to-end workflow to COMPLETED via vitest-plugin + miniflare)
+- `apps/worker` — 56 (HTTP routes, error model, ai-output module, real end-to-end workflow, `/ai/analyze` configured path via stubbed fetch)
 
 Run: `pnpm -r typecheck` (7/7 pass) / `pnpm -r test`.
 
@@ -206,8 +220,9 @@ Run: `pnpm -r typecheck` (7/7 pass) / `pnpm -r test`.
 
 ## Deployment Status
 
-**IN PROGRESS.** `apps/worker` bindings configured (D1 `crex`, R2 `crex-media`, Workflows `crex-source-to-release`).
-- `wrangler deploy --dry-run` passes (154 KiB bundle).
+**IN PROGRESS.** `apps/worker` bindings configured (D1 `crex`, R2 `crex-media`, Workflows `crex-source-to-release`, AI `vars`).
+- `wrangler deploy --dry-run` passes — 178 KiB bundle / 32.6 KiB gzip.
+- `wrangler dev` smoke: `/health` all bindings active; `POST /workflows/source-to-release` created + ran a real instance (phase RUNNING→…); `POST /ai/analyze` returns 503 `AI_NOT_CONFIGURED` without keys; local D1 migrated via `wrangler d1 migrations apply crex --local` (0001 + 0002).
 - `wrangler dev` boots locally; `/health` returns all bindings active.
 - D1 `database_id` is a placeholder until a real D1 database is provisioned — real `wrangler deploy` + `wrangler d1 migrations apply` pending credentials.
 - Decision: `decision-workflow-migrations.md` — migrations run wrangler-side, not in-app.
@@ -245,7 +260,7 @@ Deferred (registry-documented only, no code):
 |------|------|--------|
 | W0 | Repository Discovery + Contract Freeze | **COMPLETED** |
 | W1 | Shared Contracts + Project Foundation | **COMPLETED** — `c305fe4` committed & pushed |
-| W2 | Real Infrastructure Foundation | IN PROGRESS — infra + AI + worker shell committed; L1–L4 remaining |
+| W2 | Real Infrastructure Foundation | IN PROGRESS — infra + AI + worker shell + worker L1–L4 committed; D1 provisioning + live AI + security review remaining |
 | W3 | Source Ingestion Pipeline | NOT STARTED |
 | W4 | Video Understanding | NOT STARTED |
 | W5 | Evidence Graph | NOT STARTED |

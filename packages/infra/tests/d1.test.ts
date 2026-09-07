@@ -1,7 +1,24 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Miniflare, convertV4MiniflareOptions } from "miniflare";
-import { migrate, WorkflowStateRepository, type SqlBatchItem } from "@crex/db";
+import { listMigrations, migrate, WorkflowStateRepository, type SqlBatchItem } from "@crex/db";
 import { D1Adapter, type D1DatabaseBinding } from "../src/d1";
+
+const EXPECTED_MIGRATIONS = listMigrations().map((file) => file.name);
+
+const TABLE_NAMES = [
+  "_migrations",
+  "ai_outputs",
+  "claims",
+  "evidence",
+  "generated_assets",
+  "generated_components",
+  "projects",
+  "source_assets",
+  "transcript_segments",
+  "verification_findings",
+  "verification_runs",
+  "workflow_state",
+];
 
 let mf: Miniflare;
 let binding: D1DatabaseBinding;
@@ -29,8 +46,7 @@ describe("D1Adapter", () => {
   it("runs real migrations against the D1 emulation", async () => {
     const db = new D1Adapter(binding);
     const result = await migrate(db);
-    expect(result.applied).toHaveLength(1);
-    expect(result.applied[0]).toBe("0001_init.sql");
+    expect(result.applied).toEqual(EXPECTED_MIGRATIONS);
     expect(result.skipped).toHaveLength(0);
   });
 
@@ -38,10 +54,10 @@ describe("D1Adapter", () => {
     const db = new D1Adapter(binding);
     const again = await migrate(db);
     expect(again.applied).toHaveLength(0);
-    expect(again.skipped).toEqual(["0001_init.sql"]);
+    expect(again.skipped).toEqual(EXPECTED_MIGRATIONS);
   });
 
-  it("creates all ten tables", async () => {
+  it("creates all project tables", async () => {
     const db = new D1Adapter(binding);
     const rows = await db
       .prepare(
@@ -49,21 +65,7 @@ describe("D1Adapter", () => {
       )
       .all();
     const names = rows.map((row) => String(row.name)).sort();
-    expect(names).toEqual(
-      [
-        "_migrations",
-        "claims",
-        "evidence",
-        "generated_assets",
-        "generated_components",
-        "projects",
-        "source_assets",
-        "transcript_segments",
-        "verification_findings",
-        "verification_runs",
-        "workflow_state",
-      ].sort(),
-    );
+    expect(names).toEqual([...TABLE_NAMES].sort());
   });
 
   it("round-trips a workflow state through the repository", async () => {

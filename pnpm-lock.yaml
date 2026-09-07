@@ -10,6 +10,9 @@ importers:
 
   apps/worker:
     dependencies:
+      '@crex/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
       '@crex/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -22,6 +25,9 @@ importers:
       '@crex/schemas':
         specifier: workspace:*
         version: link:../../packages/schemas
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
     devDependencies:
       '@cloudflare/vitest-plugin':
         specifier: ^1.0.0

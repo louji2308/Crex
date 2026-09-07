@@ -6,3 +6,4 @@ export * from "./helpers";
 export * from "./domain";
 export * from "./api";
 export * from "./registry";
+export * from "./ai-tasks";

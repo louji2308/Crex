@@ -12,10 +12,12 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@crex/ai": "workspace:*",
     "@crex/core": "workspace:*",
     "@crex/db": "workspace:*",
     "@crex/infra": "workspace:*",
-    "@crex/schemas": "workspace:*"
+    "@crex/schemas": "workspace:*",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@cloudflare/vitest-plugin": "^1.0.0",

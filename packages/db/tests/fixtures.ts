@@ -1,4 +1,5 @@
 import type {
+  AiOutput,
   Claim,
   Evidence,
   GeneratedAsset,
@@ -25,6 +26,7 @@ export const COMPONENT_ID = "a0000000-0000-4000-8000-000000000007";
 export const RUN_ID = "a0000000-0000-4000-8000-000000000008";
 export const FINDING_ID = "a0000000-0000-4000-8000-000000000009";
 export const WORKFLOW_ID = "a0000000-0000-4000-8000-000000000010";
+export const AI_OUTPUT_ID = "a0000000-0000-4000-8000-000000000011";
 
 export function makeProject(overrides: Partial<Project> = {}): Project {
   const now = isoNow();
@@ -166,6 +168,24 @@ export function makeVerificationFinding(overrides: Partial<VerificationFinding> 
     evidence_ranges: [{ start: 523, end: 557 }],
     recommendation: "qualify the claim with the tested scope",
     created_at: isoNow(),
+    ...overrides,
+  };
+}
+
+export function makeAiOutput(overrides: Partial<AiOutput> = {}): AiOutput {
+  const now = isoNow();
+  return {
+    id: AI_OUTPUT_ID,
+    task: "SEMANTIC_UNDERSTANDING",
+    provider: "nvidia",
+    model: "meta/llama-3.3-70b-instruct",
+    raw_output: JSON.stringify({ summary: "A laptop comparison review." }),
+    normalized: { summary: "A laptop comparison review." },
+    schema_version: "0.1.0",
+    valid: true,
+    validation_errors: [],
+    fallback_used: false,
+    created_at: now,
     ...overrides,
   };
 }

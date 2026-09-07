@@ -1,0 +1,4 @@
+# Copy to .dev.vars and fill in real values for local development.
+# Committing keys is forbidden. Production secrets are set via `npx wrangler secret put`.
+NVIDIA_API_KEY=
+MISTRAL_API_KEY=

@@ -269,6 +269,41 @@ suite("repositories", () => {
     expect(await repository.listByProject("other-project")).toEqual([]);
   });
 
+  it("ai_outputs: insert, get, booleans and JSON round-trip, listByProject", async () => {
+    const { ProjectRepository, AiOutputRepository } = reposOf();
+    const fx = fixturesOf();
+    await new ProjectRepository(db).insert(fx.makeProject());
+    const repository = new AiOutputRepository(db);
+
+    const input = fx.makeAiOutput();
+    const inserted = await repository.insert(input, fx.PROJECT_ID);
+    expect(inserted.id).toBe(fx.AI_OUTPUT_ID);
+
+    const got = await repository.get(fx.AI_OUTPUT_ID);
+    expect(got).toEqual(inserted);
+    expect(got?.valid).toBe(true);
+    expect(got?.fallback_used).toBe(false);
+    expect(got?.normalized).toEqual({ summary: "A laptop comparison review." });
+    expect(got?.validation_errors).toEqual([]);
+
+    const failed = await repository.insert(
+      fx.makeAiOutput({
+        id: "a0000000-0000-4000-8000-000000000012",
+        valid: false,
+        fallback_used: true,
+        validation_errors: ["summary: required"],
+        normalized: { summary: "" },
+      }),
+      fx.PROJECT_ID,
+    );
+    expect(failed.valid).toBe(false);
+    expect(failed.fallback_used).toBe(true);
+
+    expect(await repository.listByProject(fx.PROJECT_ID)).toEqual([{ ...inserted }, failed]);
+    expect(await repository.listByProject("other-project")).toEqual([]);
+    expect(await repository.get("missing")).toBeUndefined();
+  });
+
   it("rejects an insert that violates a foreign key", async () => {
     const { SourceAssetRepository } = reposOf();
     const fx = fixturesOf();

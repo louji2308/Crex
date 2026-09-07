@@ -7,11 +7,21 @@
     "enabled": true
   },
   "upload_source_maps": true,
+  "vars": {
+    "NVIDIA_BASE_URL": "https://integrate.api.nvidia.com/v1",
+    "NVIDIA_MODEL": "meta/llama-3.3-70b-instruct",
+    "MISTRAL_BASE_URL": "https://api.mistral.ai/v1",
+    "MISTRAL_MODEL": "mistral-large-latest",
+    "AI_TIMEOUT_MS": "60000",
+    "AI_MAX_RETRIES": "2",
+    "AI_RETRY_BASE_DELAY_MS": "1000"
+  },
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "crex",
-      "database_id": "00000000-0000-0000-0000-000000000000"
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "../../packages/db/migrations"
     }
   ],
   "r2_buckets": [

@@ -4,10 +4,10 @@
 
 ## Current Status
 
-**Phase:** Wave 1 — Shared Contracts + Project Foundation (IN PROGRESS)
+**Phase:** Wave 2 — Real Infrastructure Foundation (IN PROGRESS)
 **Date:** September 7, 2026
 
-The pnpm monorepo foundation is complete: 13 frozen contract schemas (`@crex/schemas`), a D1-compatible SQLite data layer (`@crex/db`), core foundation utilities (`@crex/core`), and a cross-package test suite (`@crex/tests`) — **222 tests passing**, all packages typecheck.
+The pnpm monorepo foundation is complete: 13 frozen contract schemas (`@crex/schemas`), a D1-compatible SQLite data layer (`@crex/db`), core foundation utilities (`@crex/core`), NVIDIA→Mistral AI adapter with fallback (`@crex/ai`), D1/R2 infrastructure adapters (`@crex/infra`), and a real Cloudflare Worker (**`apps/worker`**) with D1/R2/Workflows bindings, an `AiOutput` persistence pipeline, and a `POST /ai/analyze` route — **415 tests passing**, all packages typecheck.
 
 ---
 
@@ -65,12 +65,14 @@ PUBLISH
 ```text
 Crex/
 ├── apps/
-│   └── worker/               # Cloudflare Workflows starter (Wave 2 reference)
+│   └── worker/               # Cloudflare Worker: Workflows + D1 + R2 + HTTP API
 ├── packages/
 │   ├── schemas/              # Frozen contract schemas (13), types, registry
 │   ├── db/                   # D1-compatible SQLite: migrations + data-access
-│   └── core/                 # Config/env loader, ApiError, logger, workflow state
-├── tests/                    # Fixtures, contract conformance, db integration
+│   ├── core/                 # Config/env loader, ApiError, logger, workflow state
+│   ├── ai/                   # NVIDIA (primary) + Mistral (fallback) adapters
+│   ├── infra/                # D1/R2 adapters over the @crex/db seam
+│   └── tests/                # Fixtures, contract conformance, db integration
 ├── docs/
 │   ├── engineering-baseline.md
 │   └── implementation/       # Wave 0 audits (spec, repository, risk)
@@ -93,17 +95,44 @@ Requires Node ≥ 24, pnpm ≥ 11.
 
 ```bash
 pnpm install
-cp .env.example .env   # add NVIDIA_API_KEY and/or MISTRAL_API_KEY
 ```
+
+### Worker — local run & AI provisioning
+
+AI output is generated via `POST /ai/analyze`. It needs at least one AI provider key. Copy `apps/worker/.dev.vars.example` to `apps/worker/.dev.vars` and fill in `NVIDIA_API_KEY` and/or `MISTRAL_API_KEY` (NVIDIA is primary, Mistral is fallback). Provider defaults (base URL, model, timeout, retries) can be overridden through worker vars — see `apps/worker/wrangler.jsonc`.
+
+```bash
+pnpm --filter @crex/worker dev       # runs `wrangler dev` (or: cd apps/worker && npx wrangler dev)
+```
+
+Before first run (or after a schema change), apply migrations to local D1:
+
+```bash
+cd apps/worker
+npx wrangler d1 migrations apply crex --local
+```
+
+Migrations live in `packages/db/migrations` (`wrangler.jsonc` points `migrations_dir` there). They run **wrangler-side**, not inside the worker (`node:fs` is unavailable in workerd) — see `docs/implementation/decision-workflow-migrations.md`.
+
+### Worker routes
+
+| Method | Path | Behavior |
+|--------|------|----------|
+| GET | `/health` | Bindings + config status |
+| POST | `/workflows/source-to-release` | Create + run a workflow instance (projectId in body) |
+| GET | `/workflows/source-to-release/:id` | Instance status/phase |
+| POST | `/ai/analyze` | Generate → validate → persist an `AiOutput` for a project (`SEMANTIC_UNDERSTANDING` task wired) |
+
+Without an AI key, `/ai/analyze` returns `503 AI_NOT_CONFIGURED` (honest gating); the configured path is covered end-to-end in tests with a stubbed fetch.
+
+`@crex/db` uses Node's experimental `node:sqlite` behind a `SqlDb` interface so Cloudflare D1 sits behind the same seam (`@crex/infra`).
 
 ## Testing
 
 ```bash
 pnpm -r typecheck   # strict TS across all packages
-pnpm -r test        # Vitest across all packages (222 tests)
+pnpm -r test        # Vitest across all packages (415 tests)
 ```
-
-`@crex/db` uses Node's experimental `node:sqlite` behind a `SqlDb` interface so Cloudflare D1 can be dropped in the same seam in Wave 2.
 
 ---
 
