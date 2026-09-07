@@ -4,11 +4,16 @@ import {
   assetStatusSchema,
   assetTypeSchema,
   claimTypeSchema,
+  constraintCategorySchema,
+  constraintSourceSchema,
   evidenceTypeSchema,
   findingTypeSchema,
   generationStageSchema,
   platformSchema,
+  releaseStatusSchema,
+  repairStatusSchema,
   sourceStatusSchema,
+  sponsorRequirementTypeSchema,
   verificationStatusSchema,
   workflowPhaseSchema,
 } from "./enums";
@@ -185,3 +190,70 @@ export const workflowStateSchema = z.strictObject({
 });
 
 export type WorkflowState = z.infer<typeof workflowStateSchema>;
+
+export const constraintSchema = z.strictObject({
+  id: uuidSchema,
+  project_id: uuidSchema,
+  category: constraintCategorySchema,
+  source: constraintSourceSchema,
+  summary: z.string().min(1),
+  details: z.string().min(1).optional(),
+  enabled: z.boolean(),
+  created_at: isoDateTimeSchema,
+  updated_at: isoDateTimeSchema,
+});
+
+export type Constraint = z.infer<typeof constraintSchema>;
+
+export const sponsorRequirementSchema = z.strictObject({
+  id: uuidSchema,
+  project_id: uuidSchema,
+  sponsor_name: z.string().min(1),
+  requirement_type: sponsorRequirementTypeSchema,
+  value: z.string().min(1),
+  required: z.boolean(),
+  timing: z.string().min(1).optional(),
+  enabled: z.boolean(),
+  created_at: isoDateTimeSchema,
+  updated_at: isoDateTimeSchema,
+});
+
+export type SponsorRequirement = z.infer<typeof sponsorRequirementSchema>;
+
+export const repairActionSchema = z.strictObject({
+  id: uuidSchema,
+  project_id: uuidSchema,
+  finding_id: uuidSchema,
+  asset_id: uuidSchema,
+  component_id: uuidSchema.optional(),
+  status: repairStatusSchema,
+  original_text: z.string(),
+  repaired_text: z.string().min(1),
+  source_references: z.array(uuidSchema),
+  constraint_references: z.array(uuidSchema),
+  engine: z.string().min(1),
+  created_at: isoDateTimeSchema,
+  updated_at: isoDateTimeSchema,
+});
+
+export type RepairAction = z.infer<typeof repairActionSchema>;
+
+export const releasePassportSchema = z.strictObject({
+  id: uuidSchema,
+  project_id: uuidSchema,
+  asset_id: uuidSchema,
+  version: z.number().int().nonnegative(),
+  asset_count: z.number().int().nonnegative(),
+  claim_count: z.number().int().nonnegative(),
+  evidence_coverage: scoreSchema,
+  claim_fidelity: scoreSchema,
+  numerical_integrity: scoreSchema,
+  creator_intent_status: verificationStatusSchema,
+  sponsor_compliance: verificationStatusSchema,
+  platform_qa: verificationStatusSchema,
+  overall: scoreSchema,
+  release_status: releaseStatusSchema,
+  created_at: isoDateTimeSchema,
+});
+
+export type ReleasePassport = z.infer<typeof releasePassportSchema>;

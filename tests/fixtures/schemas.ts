@@ -1,8 +1,12 @@
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
 import {
+  constraintSchema,
   projectSchema,
+  releasePassportSchema,
+  repairActionSchema,
   sourceAssetSchema,
+  sponsorRequirementSchema,
   transcriptSegmentSchema,
   claimSchema,
   evidenceSchema,
@@ -18,8 +22,12 @@ import {
   nowIso,
   toIso,
   VERIFICATION_STATUS,
+  type Constraint,
   type Project,
+  type ReleasePassport,
+  type RepairAction,
   type SourceAsset,
+  type SponsorRequirement,
   type TranscriptSegment,
   type Claim,
   type Evidence,
@@ -256,6 +264,86 @@ export function aiOutputFixture(overrides: Partial<AiOutput> = {}): AiOutput {
     created_at: nowIso(),
   };
   return aiOutputSchema.parse({ ...base, ...overrides });
+}
+
+export function constraintFixture(
+  overrides: Partial<Constraint> = {},
+): Constraint {
+  const stamp = nowIso();
+  const base: Constraint = {
+    id: createId(),
+    project_id: overrides.project_id ?? createId(),
+    category: "TECHNICAL_NUANCE",
+    source: "MANUAL",
+    summary: "Preserve test-specific qualifiers in numerical claims.",
+    enabled: true,
+    created_at: stamp,
+    updated_at: stamp,
+  };
+  return constraintSchema.parse({ ...base, ...overrides });
+}
+
+export function sponsorRequirementFixture(
+  overrides: Partial<SponsorRequirement> = {},
+): SponsorRequirement {
+  const stamp = nowIso();
+  const base: SponsorRequirement = {
+    id: createId(),
+    project_id: overrides.project_id ?? createId(),
+    sponsor_name: "TechBrand",
+    requirement_type: "DISCLOSURE",
+    value: "Sponsored by TechBrand. Learn more at techbrand.example",
+    required: true,
+    enabled: true,
+    created_at: stamp,
+    updated_at: stamp,
+  };
+  return sponsorRequirementSchema.parse({ ...base, ...overrides });
+}
+
+export function repairActionFixture(
+  overrides: Partial<RepairAction> = {},
+): RepairAction {
+  const stamp = nowIso();
+  const base: RepairAction = {
+    id: createId(),
+    project_id: overrides.project_id ?? createId(),
+    finding_id: overrides.finding_id ?? createId(),
+    asset_id: overrides.asset_id ?? createId(),
+    status: "PROPOSED",
+    original_text: "Best laptop on the market.",
+    repaired_text: "Best laptop in our test.",
+    source_references: [],
+    constraint_references: [],
+    engine: "crex-repairer-v1",
+    created_at: stamp,
+    updated_at: stamp,
+  };
+  return repairActionSchema.parse({ ...base, ...overrides });
+}
+
+export function releasePassportFixture(
+  overrides: Partial<ReleasePassport> = {},
+): ReleasePassport {
+  const stamp = nowIso();
+  const base: ReleasePassport = {
+    id: createId(),
+    project_id: overrides.project_id ?? createId(),
+    asset_id: overrides.asset_id ?? createId(),
+    version: 1,
+    asset_count: 1,
+    claim_count: 3,
+    evidence_coverage: 100,
+    claim_fidelity: 98,
+    numerical_integrity: 100,
+    creator_intent_status: "PASS",
+    sponsor_compliance: "PASS",
+    platform_qa: "PASS",
+    overall: 99,
+    release_status: "READY",
+    created_at: stamp,
+  };
+  return releasePassportSchema.parse({ ...base, ...overrides });
 }
 
 export { toIso };

@@ -1,11 +1,15 @@
 import { apiErrorSchema, aiOutputSchema, apiResponseSchema } from "./api";
 import {
   claimSchema,
+  constraintSchema,
   evidenceSchema,
   generatedAssetSchema,
   generatedComponentSchema,
   projectSchema,
+  releasePassportSchema,
+  repairActionSchema,
   sourceAssetSchema,
+  sponsorRequirementSchema,
   transcriptSegmentSchema,
   verificationFindingSchema,
   verificationRunSchema,
@@ -23,16 +27,16 @@ export const FROZEN_CONTRACTS = [
   "VerificationRun",
   "VerificationFinding",
   "WorkflowState",
+  "Constraint",
+  "SponsorRequirement",
+  "RepairAction",
+  "ReleasePassport",
   "APIResponse",
   "AiOutput",
   "ApiError",
 ] as const;
 
 export const DEFERRED_CONTRACTS = [
-  { name: "Constraint", targetWave: "Wave 2" },
-  { name: "SponsorRequirement", targetWave: "Wave 2" },
-  { name: "RepairAction", targetWave: "Wave 2" },
-  { name: "ReleasePassport", targetWave: "Wave 2" },
   { name: "PerformanceObservation", targetWave: "later" },
   { name: "LearningRecord", targetWave: "later" },
 ] as const;
@@ -48,6 +52,10 @@ export const CONTRACTS = {
   VerificationRun: verificationRunSchema,
   VerificationFinding: verificationFindingSchema,
   WorkflowState: workflowStateSchema,
+  Constraint: constraintSchema,
+  SponsorRequirement: sponsorRequirementSchema,
+  RepairAction: repairActionSchema,
+  ReleasePassport: releasePassportSchema,
   APIResponse: apiResponseSchema,
   AiOutput: aiOutputSchema,
   ApiError: apiErrorSchema,

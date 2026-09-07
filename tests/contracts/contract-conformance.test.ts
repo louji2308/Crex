@@ -6,11 +6,15 @@ import {
   DEFERRED_CONTRACTS,
   apiErrorSchema,
   claimSchema,
+  constraintSchema,
   evidenceSchema,
   generatedAssetSchema,
   generatedComponentSchema,
   projectSchema,
+  releasePassportSchema,
+  repairActionSchema,
   sourceAssetSchema,
+  sponsorRequirementSchema,
   transcriptSegmentSchema,
   verificationFindingSchema,
   verificationRunSchema,
@@ -27,6 +31,10 @@ import {
   verificationRunFixture,
   verificationFindingFixture,
   workflowStateFixture,
+  constraintFixture,
+  sponsorRequirementFixture,
+  repairActionFixture,
+  releasePassportFixture,
   apiOkFixture,
   apiErrFixture,
   aiOutputFixture,
@@ -43,6 +51,10 @@ const FROZEN_NAMES = [
   "VerificationRun",
   "VerificationFinding",
   "WorkflowState",
+  "Constraint",
+  "SponsorRequirement",
+  "RepairAction",
+  "ReleasePassport",
   "APIResponse",
   "AiOutput",
   "ApiError",
@@ -148,6 +160,50 @@ const CASES: ContractCase[] = [
     requiredKey: "id",
   },
   {
+    name: "Constraint",
+    schema: constraintSchema,
+    fixture: () => constraintFixture(),
+    requiredKey: "id",
+    enumField: {
+      field: "category",
+      valid: "TONE",
+      invalid: "BANANA",
+    },
+  },
+  {
+    name: "SponsorRequirement",
+    schema: sponsorRequirementSchema,
+    fixture: () => sponsorRequirementFixture(),
+    requiredKey: "id",
+    enumField: {
+      field: "requirement_type",
+      valid: "DISCLOSURE",
+      invalid: "BANANA",
+    },
+  },
+  {
+    name: "RepairAction",
+    schema: repairActionSchema,
+    fixture: () => repairActionFixture(),
+    requiredKey: "id",
+    enumField: {
+      field: "status",
+      valid: "APPLIED",
+      invalid: "BANANA",
+    },
+  },
+  {
+    name: "ReleasePassport",
+    schema: releasePassportSchema,
+    fixture: () => releasePassportFixture(),
+    requiredKey: "id",
+    enumField: {
+      field: "release_status",
+      valid: "READY",
+      invalid: "BANANA",
+    },
+  },
+  {
     name: "APIResponse",
     schema: apiResponseSchemaShape(),
     fixture: () => apiOkFixture({ hello: "world" }),
@@ -222,8 +278,8 @@ function asShape(schema: z.ZodType): SchemaShape {
 }
 
 describe("frozen contract registry", () => {
-  it("freezes exactly 13 contracts", () => {
-    expect(FROZEN_CONTRACTS).toHaveLength(13);
+  it("freezes exactly the 17 Wave 1 + Wave 2 contracts", () => {
+    expect(FROZEN_CONTRACTS).toHaveLength(17);
     expect([...FROZEN_CONTRACTS].sort()).toEqual([...FROZEN_NAMES].sort());
   });
 
@@ -233,17 +289,14 @@ describe("frozen contract registry", () => {
     }
   });
 
-  it("documents the six deferred contracts with wave targets", () => {
-    expect(DEFERRED_CONTRACTS).toHaveLength(6);
+  it("documents the two later-wave deferred contracts", () => {
+    expect(DEFERRED_CONTRACTS).toHaveLength(2);
     const names = DEFERRED_CONTRACTS.map((c) => c.name);
-    expect(names).toContain("Constraint");
-    expect(names).toContain("SponsorRequirement");
-    expect(names).toContain("RepairAction");
-    expect(names).toContain("ReleasePassport");
     expect(names).toContain("PerformanceObservation");
     expect(names).toContain("LearningRecord");
-    const wave2 = DEFERRED_CONTRACTS.filter((c) => c.targetWave === "Wave 2");
-    expect(wave2).toHaveLength(4);
+    for (const contract of DEFERRED_CONTRACTS) {
+      expect(contract.targetWave === "later").toBe(true);
+    }
   });
 });
 

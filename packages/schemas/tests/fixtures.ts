@@ -5,11 +5,15 @@ import {
   type ApiError,
   type ApiResponse,
   type Claim,
+  type Constraint,
   type Evidence,
   type GeneratedAsset,
   type GeneratedComponent,
   type Project,
+  type ReleasePassport,
+  type RepairAction,
   type SourceAsset,
+  type SponsorRequirement,
   type TranscriptSegment,
   type VerificationFinding,
   type VerificationRun,
@@ -198,6 +202,72 @@ export function validAiOutput(): AiOutput {
     valid: true,
     validation_errors: [],
     fallback_used: false,
+    created_at: nowIso(),
+  };
+}
+
+export function validConstraint(): Constraint {
+  return {
+    id: createId(),
+    project_id: createId(),
+    category: "TECHNICAL_NUANCE",
+    source: "MANUAL",
+    summary: "Preserve the test-specific qualifier in every numerical claim.",
+    details: "Do not state battery life as an absolute market claim.",
+    enabled: true,
+    created_at: nowIso(),
+    updated_at: nowIso(),
+  };
+}
+
+export function validSponsorRequirement(): SponsorRequirement {
+  return {
+    id: createId(),
+    project_id: createId(),
+    sponsor_name: "TechBrand",
+    requirement_type: "DISCOUNT_CODE",
+    value: "CODE20",
+    required: true,
+    enabled: true,
+    created_at: nowIso(),
+    updated_at: nowIso(),
+  };
+}
+
+export function validRepairAction(): RepairAction {
+  return {
+    id: createId(),
+    project_id: createId(),
+    finding_id: createId(),
+    asset_id: createId(),
+    component_id: createId(),
+    status: "PROPOSED",
+    original_text: "Best laptop on the market.",
+    repaired_text: "Best laptop in our test.",
+    source_references: [createId()],
+    constraint_references: [createId()],
+    engine: "gemini",
+    created_at: nowIso(),
+    updated_at: nowIso(),
+  };
+}
+
+export function validReleasePassport(): ReleasePassport {
+  return {
+    id: createId(),
+    project_id: createId(),
+    asset_id: createId(),
+    version: 1,
+    asset_count: 1,
+    claim_count: 3,
+    evidence_coverage: 100,
+    claim_fidelity: 98,
+    numerical_integrity: 100,
+    creator_intent_status: "PASS",
+    sponsor_compliance: "PASS",
+    platform_qa: "PASS",
+    overall: 99,
+    release_status: "READY",
     created_at: nowIso(),
   };
 }

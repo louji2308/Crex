@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
   claimSchema,
+  constraintSchema,
   evidenceSchema,
   generatedAssetSchema,
   generatedComponentSchema,
   projectSchema,
+  releasePassportSchema,
+  repairActionSchema,
   sourceAssetSchema,
+  sponsorRequirementSchema,
   transcriptSegmentSchema,
   verificationFindingSchema,
   verificationRunSchema,
@@ -13,11 +17,15 @@ import {
 } from "../src/index";
 import {
   validClaim,
+  validConstraint,
   validEvidence,
   validGeneratedAsset,
   validGeneratedComponent,
   validProject,
+  validReleasePassport,
+  validRepairAction,
   validSourceAsset,
+  validSponsorRequirement,
   validTranscriptSegment,
   validVerificationFinding,
   validVerificationRun,
@@ -271,5 +279,102 @@ describe("workflowStateSchema", () => {
   it("survives a JSON round-trip", () => {
     const roundTripped = JSON.parse(JSON.stringify(valid())) as unknown;
     expect(() => workflowStateSchema.parse(roundTripped)).not.toThrow();
+  });
+});
+
+describe("constraintSchema", () => {
+  const valid = () => validConstraint();
+
+  it("parses a valid constraint", () => {
+    const parsed = constraintSchema.parse(valid());
+    expect(parsed.category).toBe("TECHNICAL_NUANCE");
+    expect(parsed.enabled).toBe(true);
+  });
+
+  it.each([
+    ["an unknown key", { ...valid(), stray: true }],
+    ["a missing required field", without(valid(), "summary")],
+    ["an invalid category", { ...valid(), category: "NOPE" }],
+    ["an invalid source", { ...valid(), source: "GUESSED" }],
+    ["a wrong-typed field", { ...valid(), enabled: "yes" }],
+  ])("rejects %s", (_label, input) => {
+    expect(() => constraintSchema.parse(input)).toThrow();
+  });
+
+  it("survives a JSON round-trip", () => {
+    const roundTripped = JSON.parse(JSON.stringify(valid())) as unknown;
+    expect(() => constraintSchema.parse(roundTripped)).not.toThrow();
+  });
+});
+
+describe("sponsorRequirementSchema", () => {
+  const valid = () => validSponsorRequirement();
+
+  it("parses a valid sponsor requirement", () => {
+    const parsed = sponsorRequirementSchema.parse(valid());
+    expect(parsed.requirement_type).toBe("DISCOUNT_CODE");
+    expect(parsed.sponsor_name).toBe("TechBrand");
+  });
+
+  it.each([
+    ["an unknown key", { ...valid(), stray: true }],
+    ["a missing required field", without(valid(), "value")],
+    ["an invalid requirement type", { ...valid(), requirement_type: "NOPE" }],
+    ["a missing sponsor", { ...valid(), sponsor_name: "" }],
+  ])("rejects %s", (_label, input) => {
+    expect(() => sponsorRequirementSchema.parse(input)).toThrow();
+  });
+
+  it("survives a JSON round-trip", () => {
+    const roundTripped = JSON.parse(JSON.stringify(valid())) as unknown;
+    expect(() => sponsorRequirementSchema.parse(roundTripped)).not.toThrow();
+  });
+});
+
+describe("repairActionSchema", () => {
+  const valid = () => validRepairAction();
+
+  it("parses a valid repair action", () => {
+    const parsed = repairActionSchema.parse(valid());
+    expect(parsed.status).toBe("PROPOSED");
+    expect(parsed.repaired_text).toBe("Best laptop in our test.");
+  });
+
+  it.each([
+    ["an unknown key", { ...valid(), stray: true }],
+    ["a missing required field", without(valid(), "finding_id")],
+    ["an invalid status", { ...valid(), status: "NOPE" }],
+    ["an empty repaired text", { ...valid(), repaired_text: "" }],
+  ])("rejects %s", (_label, input) => {
+    expect(() => repairActionSchema.parse(input)).toThrow();
+  });
+
+  it("survives a JSON round-trip", () => {
+    const roundTripped = JSON.parse(JSON.stringify(valid())) as unknown;
+    expect(() => repairActionSchema.parse(roundTripped)).not.toThrow();
+  });
+});
+
+describe("releasePassportSchema", () => {
+  const valid = () => validReleasePassport();
+
+  it("parses a valid release passport", () => {
+    const parsed = releasePassportSchema.parse(valid());
+    expect(parsed.release_status).toBe("READY");
+    expect(parsed.overall).toBe(99);
+  });
+
+  it.each([
+    ["an unknown key", { ...valid(), stray: true }],
+    ["a missing required field", without(valid(), "asset_count")],
+    ["an invalid release status", { ...valid(), release_status: "NOPE" }],
+    ["a score above the domain", { ...valid(), overall: 101 }],
+  ])("rejects %s", (_label, input) => {
+    expect(() => releasePassportSchema.parse(input)).toThrow();
+  });
+
+  it("survives a JSON round-trip", () => {
+    const roundTripped = JSON.parse(JSON.stringify(valid())) as unknown;
+    expect(() => releasePassportSchema.parse(roundTripped)).not.toThrow();
   });
 });

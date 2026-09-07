@@ -14,8 +14,8 @@ describe("SCHEMAS_VERSION", () => {
 });
 
 describe("FROZEN_CONTRACTS", () => {
-  it("freezes exactly the 13 Wave 1 contracts", () => {
-    expect(FROZEN_CONTRACTS).toHaveLength(13);
+  it("freezes exactly the 17 Wave 1 + Wave 2 contracts", () => {
+    expect(FROZEN_CONTRACTS).toHaveLength(17);
     expect(FROZEN_CONTRACTS).toEqual([
       "Project",
       "SourceAsset",
@@ -27,6 +27,10 @@ describe("FROZEN_CONTRACTS", () => {
       "VerificationRun",
       "VerificationFinding",
       "WorkflowState",
+      "Constraint",
+      "SponsorRequirement",
+      "RepairAction",
+      "ReleasePassport",
       "APIResponse",
       "AiOutput",
       "ApiError",
@@ -35,13 +39,9 @@ describe("FROZEN_CONTRACTS", () => {
 });
 
 describe("DEFERRED_CONTRACTS", () => {
-  it("lists exactly the 6 deferred contracts with their target waves", () => {
-    expect(DEFERRED_CONTRACTS).toHaveLength(6);
+  it("lists exactly the 2 later-wave deferred contracts", () => {
+    expect(DEFERRED_CONTRACTS).toHaveLength(2);
     expect(DEFERRED_CONTRACTS).toEqual([
-      { name: "Constraint", targetWave: "Wave 2" },
-      { name: "SponsorRequirement", targetWave: "Wave 2" },
-      { name: "RepairAction", targetWave: "Wave 2" },
-      { name: "ReleasePassport", targetWave: "Wave 2" },
       { name: "PerformanceObservation", targetWave: "later" },
       { name: "LearningRecord", targetWave: "later" },
     ]);
@@ -55,8 +55,8 @@ describe("DEFERRED_CONTRACTS", () => {
 });
 
 describe("CONTRACTS registry", () => {
-  it("exposes exactly the 13 frozen contracts", () => {
-    expect(Object.keys(CONTRACTS)).toHaveLength(13);
+  it("exposes exactly the 17 frozen contracts", () => {
+    expect(Object.keys(CONTRACTS)).toHaveLength(17);
   });
 
   it("every frozen name resolves to a schema or schema factory", () => {
@@ -77,6 +77,10 @@ describe("CONTRACTS registry", () => {
       VerificationRun: CONTRACTS.VerificationRun,
       VerificationFinding: CONTRACTS.VerificationFinding,
       WorkflowState: CONTRACTS.WorkflowState,
+      Constraint: CONTRACTS.Constraint,
+      SponsorRequirement: CONTRACTS.SponsorRequirement,
+      RepairAction: CONTRACTS.RepairAction,
+      ReleasePassport: CONTRACTS.ReleasePassport,
       AiOutput: CONTRACTS.AiOutput,
       ApiError: CONTRACTS.ApiError,
     };

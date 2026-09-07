@@ -63,6 +63,31 @@ export const AI_TASK = [
   "REPAIR_SUGGESTION",
 ] as const;
 
+export const CONSTRAINT_CATEGORY = [
+  "TONE",
+  "TARGET_AUDIENCE",
+  "ABSOLUTE_CLAIM_BAN",
+  "TECHNICAL_NUANCE",
+  "CLICKBAIT_BAN",
+  "TITLE_STYLE",
+  "OTHER",
+] as const;
+
+export const CONSTRAINT_SOURCE = ["MANUAL", "INFERRED"] as const;
+
+export const SPONSOR_REQUIREMENT_TYPE = [
+  "REQUIRED_PHRASE",
+  "DISCLOSURE",
+  "DISCOUNT_CODE",
+  "REQUIRED_URL",
+  "MUST_NOT_CLAIM",
+  "TIMING",
+] as const;
+
+export const REPAIR_STATUS = ["PROPOSED", "APPLIED", "REJECTED"] as const;
+
+export const RELEASE_STATUS = ["DRAFT", "READY", "BLOCKED"] as const;
+
 export const verificationStatusSchema = z.enum(VERIFICATION_STATUS);
 
 export const assetStatusSchema = z.enum(ASSET_STATUS);
@@ -84,3 +109,13 @@ export const platformSchema = z.enum(PLATFORM);
 export const findingTypeSchema = z.enum(FINDING_TYPE);
 
 export const aiTaskSchema = z.enum(AI_TASK);
+
+export const constraintCategorySchema = z.enum(CONSTRAINT_CATEGORY);
+
+export const constraintSourceSchema = z.enum(CONSTRAINT_SOURCE);
+
+export const sponsorRequirementTypeSchema = z.enum(SPONSOR_REQUIREMENT_TYPE);
+
+export const repairStatusSchema = z.enum(REPAIR_STATUS);
+
+export const releaseStatusSchema = z.enum(RELEASE_STATUS);
