@@ -4,12 +4,12 @@
 
 ## Current Status
 
-**Phase:** Wave 3 — Source Ingestion Pipeline (COMPLETE + VERIFIED LIVE) + **Wave 13 Provenance Foundation (COMPLETE + TESTED)** + **Wave 14 Audience Context (IMPLEMENTED + TESTED)** + Live D1 provisioning COMPLETE
+**Phase:** Wave 3 — Source Ingestion Pipeline (COMPLETE + VERIFIED LIVE) + **Wave 12 Release Passport (IMPLEMENTED + TESTED)** + **Wave 13 Provenance Foundation (COMPLETE + TESTED)** + **Wave 14 Audience Context (IMPLEMENTED + TESTED)** + Live D1 provisioning COMPLETE
 **Date:** September 7, 2026
 
 The pnpm monorepo foundation is complete: **18 frozen contract schemas** (`@crex/schemas`), a D1-compatible SQLite data layer (`@crex/db`), core foundation utilities (`@crex/core`), NVIDIA→OpenRouter AI adapter with fallback (`@crex/ai`), D1/R2 infrastructure adapters (`@crex/infra`), a media inspection package (`@crex/media`), a provenance package (`@crex/c2pa`), an audience package (`@crex/audience`), and a real Cloudflare Worker (**`apps/worker`**) with D1/R2/Workflows bindings.
 
-Wave 3 implements the **source ingestion pipeline**: upload → R2 → D1 → media validation → `SourceAsset` → workflow ingestion → `READY`, plus a minimal upload UI. Wave 2's infra/AI groundwork remains in place: `GET /health`, and `POST /ai/analyze` running the `SEMANTIC_UNDERSTANDING` task through NVIDIA→OpenRouter with schema validation and `AiOutput` persistence. Wave 13 adds the **provenance foundation**: a frozen `ProvenanceRecord` contract, provenance D1 table + repository, C2PA manifest build/verify logic, and worker `/provenance/*` routes that bind real R2 asset bytes to SHA-256 hashes (honest `UNSIGNED` state — real C2PA signing requires installing the `c2pa-python` SDK). The live D1 database and R2 are provisioned and the Worker is **deployed live**; **583 tests passing** across 10 workspaces, all typechecks green.
+Wave 3 implements the **source ingestion pipeline**: upload → R2 → D1 → media validation → `SourceAsset` → workflow ingestion → `READY`, plus a minimal upload UI. Wave 2's infra/AI groundwork remains in place: `GET /health`, and `POST /ai/analyze` running the `SEMANTIC_UNDERSTANDING` task through NVIDIA→OpenRouter with schema validation and `AiOutput` persistence. Wave 13 adds the **provenance foundation**: a frozen `ProvenanceRecord` contract, provenance D1 table + repository, C2PA manifest build/verify logic, and worker `/provenance/*` routes that bind real R2 asset bytes to SHA-256 hashes (honest `UNSIGNED` state — real C2PA signing requires installing the `c2pa-python` SDK). Wave 14 adds the **audience context** subsystem (deterministic profiles/insights/recommendations). Wave 12 adds the **Release Passport**: a frozen snapshot contract and `/passports` API that compiles the latest verification state into versioned `release_status`/`watch_status`/dimension scores, honestly reflecting provenance (no `READY` while provenance is not `VALID`). The live D1 database and R2 are provisioned and the Worker is **deployed live**; **`apps/worker` 179 tests passing** (162 baseline + 17 Release Passport), all typechecks green (11/11).
 
 ---
 
@@ -149,6 +149,25 @@ GET  /audience/context?projectId=   assembled primary/complementary profiles + i
 - **Storage:** migration `0011_audience.sql` + four repositories in `packages/db`.
 - `POST /audience/compute` recomputes and persists a fresh profile, insights, and recommendations for a project (deterministic and repeatable).
 
+## Release Passport (Wave 12)
+
+Wave 12 compiles the latest verification state into a versioned, frozen-format **Release Passport** snapshot per asset. It is 100% deterministic — no AI — and is the release-readiness gate at the end of the Crex path.
+
+- **Contract:** the frozen `ReleasePassport` (`packages/schemas`) with `release_status` (`DRAFT`/`BLOCKED`/`READY`), `watch_status` (`PASS`/`REVIEW`), `overall_score` (0–100), the four dimension scores (`run_component`, `evidence_coverage`, `claim_fidelity`, `numerical_integrity`), `asset_count`, `claim_count`, `verification_result_verified_at`, `source`, and `assets`.
+- **Migration** `0013_release_passports.sql`: `release_passports` table with CHECK constraints on the status/score enums and indexes on `asset_id` + `project_id`.
+- **Pipeline** `buildReleasePassport` (`apps/worker/src/pipelines/passport.ts`): aggregates the latest verification findings per run and scores each dimension as `clamp(base - 25·#BLOCK - 10·#REVIEW, 0, 100)`; `overall = min(round(0.6·numericAvg + 0.4·statusAvg), cap)` with caps `READY=100 / DRAFT=70 / BLOCKED=40`; emits `version = latest.version + 1`.
+- **`release_status` mapping:** no previous run → `DRAFT`; latest run `BLOCK` → `BLOCKED`; provenance `SIGNED` but `verification_status != VALID` → `BLOCKED`; provenance present but not `VALID` (e.g. `UNSIGNED`) → `DRAFT`; recent run `REVIEW` → `DRAFT`; mandatory sponsor with a `SPONSOR_COMPLIANCE` BLOCK → `DRAFT`; any nonzero-matching dimension != `PASS` → `DRAFT`; otherwise `READY`. A `VALID` provenance verification is required for `READY` as soon as a provenance record exists.
+- **API** (`apps/worker/src/passport-routes.ts`):
+
+```text
+POST /passports                    {projectId, assetId} → 201 { passport }  (version bump per asset)
+GET  /passports?projectId=<uuid>   list a project's passports
+GET  /passports/:id                fetch a passport by id
+GET  /passports/:assetId/latest    fetch the latest passport for an asset
+```
+
+- **Tests:** `apps/worker/tests/passport.test.ts` — 17 tests (creation, versioning, READY/BLOCKED/DRAFT selection, provenance downgrades, score penalization, counts, 404/409 routes) — worker suite green **179/179**.
+
 ---
 
 ## Source Ingestion (Wave 3)
@@ -249,6 +268,15 @@ Worker `vars` (defaults in `apps/worker/wrangler.jsonc`) cover AI provider confi
 | GET | `/audience/observations?projectId=` | List observations |
 | POST | `/audience/compute` | Deterministic aggregate → insights → recommendations |
 | GET | `/audience/context?projectId=` | Assembled audience context |
+| POST | `/repair` | Create deterministic PROPOSED repair actions for a verified asset (`{projectId, assetId, runId?}`) |
+| POST | `/repair/:actionId/apply` | Apply a proposed repair action (`{projectId}`) |
+| POST | `/reverify` | Apply all proposed repairs then re-run the verifier (`{projectId, assetId, runId?}`) |
+| GET | `/repair/actions?assetId=` | List repair actions for an asset |
+| GET | `/repair/actions?runId=` | List repair actions tied to a verification run |
+| POST | `/passports` | Create a Release Passport snapshot for an asset (`{projectId, assetId}`) |
+| GET | `/passports?projectId=` | List a project's passports |
+| GET | `/passports/:id` | Fetch a passport by id |
+| GET | `/passports/:assetId/latest` | Fetch the latest passport for an asset |
 
 Without an AI key, `/ai/analyze` returns `503 AI_NOT_CONFIGURED` (honest gating); the configured path is covered end-to-end in tests with a stubbed fetch.
 
@@ -258,10 +286,10 @@ Without an AI key, `/ai/analyze` returns `503 AI_NOT_CONFIGURED` (honest gating)
 
 ```bash
 pnpm -r typecheck   # strict TS across all packages (11/11 green)
-pnpm -r test        # Vitest across all workspaces (583 tests)
+pnpm -r test        # Vitest across all workspaces (668 tests)
 ```
 
-Coverage by workspace: `@crex/schemas` 154, `@crex/tests` 106, `@crex/db` 66, `@crex/infra` 37, `@crex/ai` 36, `@crex/media` 29, `@crex/c2pa` 22, `@crex/core` 18, `@crex/audience` 12, `apps/worker` 103.
+Coverage by workspace: `@crex/schemas` 154, `@crex/tests` 106, `@crex/db` 66, `@crex/infra` 37, `@crex/ai` 36, `@crex/media` 29, `@crex/c2pa` 22, `@crex/core` 18, `@crex/audience` 12, `apps/worker` 188 (162 baseline + 9 Repair/Re-verify + 17 Release Passport).
 
 ---
 
