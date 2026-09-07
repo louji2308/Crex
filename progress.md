@@ -13,7 +13,7 @@
 
 ```text
 Branch: main
-Commits: 2
+Commits: 3
 Source Code: NONE (greenfield)
 Specification: COMPLETE
 Architecture: DEFINED
@@ -63,6 +63,8 @@ Implementation Plan: DEFINED
 3. **README.md is empty** — Needs immediate update to reflect actual state.
 4. **No progress.md** — Required by AGENTS.md. Created in this session.
 5. **Hackathon deadline is imminent** — September 8, 2026 at 8:00 AM ET (~47 hours).
+6. **`apps/worker` is a stock scaffold** — nested `create-cloudflare` Workflows starter (branch `master`, commit `10f0094`, no remote). Not authored work; kept as Wave-2 Workflows reference only.
+7. **`.recon/` tooling directory exists** — the `# Recon` / `.recon/` gitignore additions originated from it; directory is ignored and left in place.
 
 ### Architecture Summary
 
@@ -72,8 +74,8 @@ The approved architecture is:
 - **Database:** Cloudflare D1 (SQLite)
 - **Object Storage:** Cloudflare R2
 - **Background Processing:** Cloudflare Workflows
-- **AI (Primary):** Gemini 3.7 Flash
-- **AI (Fallback):** Ollama (local)
+- **AI (Primary):** NVIDIA (`NVIDIA_API_KEY`)
+- **AI (Fallback):** Mistral (`MISTRAL_API_KEY`)
 - **Vector Search:** Cloudflare Vectorize + LanceDB (local)
 - **Media Processing:** FFmpeg
 - **Speech Fallback:** WhisperX/faster-whisper
@@ -113,9 +115,11 @@ The approved architecture is:
 
 | Task | Owner | Status |
 |------|-------|--------|
-| Wave 0 specification audit | Worker A | PENDING |
-| Wave 0 repository audit | Worker B | PENDING |
-| Wave 0 risk audit | Worker C | PENDING |
+| Wave 1 docs update (Todo 1) | Lead | IN PROGRESS |
+| Wave 1 monorepo foundation (Todo 2) | Lead | NOT STARTED |
+| Wave 1 Zod/TypeScript contracts (Worker A) | Worker A | NOT STARTED |
+| Wave 1 Pydantic models (Worker B) | Worker B | NOT STARTED |
+| Wave 1 test foundation (Worker C) | Worker C | NOT STARTED |
 
 ---
 
@@ -180,6 +184,7 @@ None currently.
 | Gemini as primary AI | Pre-existing | Free tier, direct video understanding |
 | Create .gitignore now | Sep 6 | Security hygiene before any code |
 | Create progress.md now | Sep 6 | Required by AGENTS.md |
+| Change AI provider | Sep 6 | User directive: NVIDIA primary (`NVIDIA_API_KEY`), Mistral secondary (`MISTRAL_API_KEY`). Gemini and Ollama removed. |
 
 ---
 

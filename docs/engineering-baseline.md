@@ -12,7 +12,7 @@
 
 ```text
 Branch: main
-Commits: 2 (first commit + docs)
+Commits: 3 (first commit + docs + Wave 0)
 Source Code: NONE
 Configuration: NONE
 Tests: NONE
@@ -53,7 +53,7 @@ Deployment: NONE
 | Requirement | Implementation Status | Notes |
 |-------------|----------------------|-------|
 | Source ingestion | NOT IMPLEMENTED | No upload, no media handling |
-| Transcription/segmentation | NOT IMPLEMENTED | No Whisper/Gemini integration |
+| Transcription/segmentation | NOT IMPLEMENTED | No Whisper/AI integration |
 | Content understanding | NOT IMPLEMENTED | No AI analysis pipeline |
 | Evidence Graph | NOT IMPLEMENTED | No graph data structure |
 | Creator Intent Contract | NOT IMPLEMENTED | No constraint system |
@@ -81,8 +81,8 @@ Deployment: NONE
 | Cloudflare R2 | NOT IMPLEMENTED | No storage integration |
 | Cloudflare Workflows | NOT IMPLEMENTED | No workflow code |
 | Cloudflare Vectorize | NOT IMPLEMENTED | No vector search |
-| Gemini 3.7 Flash | NOT IMPLEMENTED | No AI integration |
-| Ollama (fallback) | NOT IMPLEMENTED | No local AI |
+| NVIDIA (AI primary) | NOT IMPLEMENTED | SUPERSEDED stack — user-mandated primary (see §6.1) |
+| Mistral (AI fallback) | NOT IMPLEMENTED | SUPERSEDED stack — user-mandated fallback (see §6.1) |
 | WhisperX (fallback) | NOT IMPLEMENTED | No speech processing |
 | FFmpeg | NOT IMPLEMENTED | No media processing |
 | C2PA | NOT IMPLEMENTED | No provenance |
@@ -93,7 +93,7 @@ Deployment: NONE
 
 | Wave | Name | Status |
 |------|------|--------|
-| W0 | Repository Discovery + Contract Freeze | IN PROGRESS |
+| W0 | Repository Discovery + Contract Freeze | COMPLETE |
 | W1 | Shared Contracts + Project Foundation | NOT STARTED |
 | W2 | Real Infrastructure Foundation | NOT STARTED |
 | W3 | Source Ingestion Pipeline | NOT STARTED |
@@ -146,16 +146,37 @@ Deployment: Cloudflare Pages/Workers
 Database: Cloudflare D1 (SQLite)
 Storage: Cloudflare R2
 Orchestration: Cloudflare Workflows
-AI Primary: Gemini 3.7 Flash
-AI Fallback: Ollama
+AI Primary: NVIDIA (OpenAI-compatible, NVIDIA_API_KEY)
+AI Fallback: Mistral (OpenAI-compatible, MISTRAL_API_KEY)
 Vector Search: Cloudflare Vectorize + LanceDB
 Media: FFmpeg
-Speech: WhisperX/faster-whisper
+Speech: faster-whisper / WhisperX (primary)
 Provenance: C2PA Python SDK
 Schemas: Zod + Pydantic
 Testing: Vitest + Playwright + pytest
 CI: GitHub Actions
 ```
+
+### AI Provider Directive (User-Authorized Change, Sep 6)
+
+Supersedes the Gemini/Ollama stack from the original specification documents.
+
+```text
+AI Primary:   NVIDIA (OpenAI-compatible — NVIDIA_API_KEY)
+AI Fallback:  Mistral (OpenAI-compatible — MISTRAL_API_KEY)
+Excluded:     Gemini (any), Ollama (any local model)
+```
+
+Consequences:
+1. **No Gemini, no Ollama** anywhere in the stack.
+2. **Vision**: NVIDIA NIM and Mistral accept images, not video, so video understanding = FFmpeg frame extraction + vision-model calls per frame/segment.
+3. **Transcription**: faster-whisper / WhisperX becomes the PRIMARY transcriber (was "fallback" in the original spec).
+4. **Fallback chain**: NVIDIA → Mistral → explicit failure report. Real fallbacks only (never fake results).
+
+Deferred questions (do not block Wave 1):
+- NVIDIA vision model name → resolve at AI smoke-test moment.
+- Real API keys → none available yet; user will supply later.
+- Cloudflare service list → Workflows confirmed enabled; full binding list TBD before Wave 2.
 
 ### Architecture Conflicts
 
@@ -165,7 +186,7 @@ CI: GitHub Actions
 
 1. **Cloudflare Workers CPU limit** — 10ms CPU per invocation may be too restrictive for complex operations. Mitigation: Use Workflows for long-running tasks.
 2. **D1 single-threaded** — Sequential query processing may be slow under load. Mitigation: Acceptable for hackathon demo.
-3. **Gemini free tier quotas** — May run out during demo. Mitigation: Implement Ollama fallback.
+3. **NVIDIA/Mistral API quotas** — May run out during demo. Mitigation: real fallback chain NVIDIA → Mistral → explicit failure report (never fake results).
 4. **R2 10GB storage limit** — May be tight for video storage. Mitigation: Use for demo assets only.
 
 ---

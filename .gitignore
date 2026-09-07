@@ -81,3 +81,6 @@ whisper_models/
 
 # FFmpeg temporary files
 *.ffmpeg
+
+# Recon
+.recon/
