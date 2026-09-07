@@ -2,7 +2,7 @@
 
 ## Current Status
 
-**Phase:** Wave 3 - Source Ingestion Pipeline (COMPLETE + VERIFIED LIVE) / **Wave 13 - Provenance Foundation (COMPLETE + TESTED)** / **Wave 14 - Audience Context + Learning (IMPLEMENTED + TESTED)** / **Live D1 provisioning COMPLETE**
+**Phase:** Wave 3 - Source Ingestion Pipeline (COMPLETE + VERIFIED LIVE) / **Wave 12 - Release Passport (IMPLEMENTED + TESTED)** / **Wave 13 - Provenance Foundation (COMPLETE + TESTED)** / **Wave 14 - Audience Context + Learning (IMPLEMENTED + TESTED)** / **Live D1 provisioning COMPLETE**
 **Date:** September 7, 2026
 **Hackathon Deadline:** September 8, 2026 - 8:00 AM ET
 
@@ -106,6 +106,24 @@ Status: **PASSED** (verified this session; no separate security-review artifact 
 
 - AI-assisted interpretation / structured-features-then-AI path is intentionally NOT wired yet; the deterministic core is complete and independently tested. `RECOMMENDATION_BASE.DETERMINISTIC` is what the current pipeline emits.
 - Wave 14 contracts are implemented via deep imports and documented, but not yet moved into the frozen registry (shared `registry.ts`/`index.ts` are owned by parallel Wave 4/13 and must not be touched until they commit).
+
+## Wave 12: Release Passport (IMPLEMENTED + TESTED)
+
+### Completed
+
+- **Migration** `0013_release_passports.sql`: `release_passports` table (versioned snapshots of the frozen `ReleasePassport` contract) with CHECK constraints on `release_status`/`watch_status`/`overall_score` and indexes on `asset_id` + `project_id`.
+- **Repository** `ReleasePassportRepository` (`packages/db/src/repositories/release-passports.ts`, exported from `repositories/index.ts`): `create`, `getById`, `listByProject`, `getByAsset`, `getLatestByAsset` (`version DESC, created_at DESC`). 0013 auto-applied in db/worker/infra test harnesses; no new db test file required (db suite 66/66 green).
+- **Pipeline** `buildReleasePassport` (`apps/worker/src/pipelines/passport.ts`, 407 lines with documented formulas): deterministic, no AI. Aggregates the latest verification findings per run, computes integrity dimension scores (penalized per severity: `clamp(base - 25*#BLOCK - 10*#REVIEW, 0, 100)`), run-component/status scores, the four dimension scores (`run_component`, `evidence_coverage`, `claim_fidelity`, `numerical_integrity`), `verification_result_verified_at` (earliest pass-to-violation boundary time), and `overall = min(round(0.6*numeric + 0.4*status), cap)` with caps READY=100 / DRAFT=70 / BLOCKED=40. `version = latest.version + 1`.
+- **`release_status` mapping** (documented in pipeline header): no previous run -> `DRAFT`; latest run `BLOCK` -> `BLOCKED`; provenance `SIGNED` but `verification_status != VALID` -> `BLOCKED`; provenance exists (e.g. `UNSIGNED`) with `verification_status != VALID` -> `DRAFT`; run `REVIEW` -> `DRAFT`; mandatory sponsor (`required && enabled`) with a `SPONSOR_COMPLIANCE` BLOCK finding -> `DRAFT`; any dimension != PASS -> `DRAFT`; else `READY`. Watch status: `PASS` if all four dimensions PASS, else `REVIEW`.
+- **Provenance handling**: the frozen `ReleasePassport` has no provenance field, so provenance state is surfaced honestly through `release_status` (see above) — a `VALID` provenance `verification_status` is required for `READY` once a provenance record exists; `UNSIGNED`/`UNTRUSTED`/`FAILED` downgrade to `DRAFT`, `SIGNED`+`INVALID`/`MISSING` downgrade to `BLOCKED`; no provenance record -> no penalty.
+- **API** (`apps/worker/src/passport-routes.ts`, wired into `index.ts`): `POST /passports` `{projectId, assetId}` -> 201 passport; `GET /passports?projectId=` -> list; `GET /passports/:id` -> passport; `GET /passports/:assetId/latest` -> latest. New error codes `PASSPORT_NOT_FOUND:404`, `INVALID_PASSPORT_STATE:409` in `http.ts`.
+- **Tests** (`apps/worker/tests/passport.test.ts`, 17 tests): deterministic creation with no verification (overall 70 DRAFT), version bump 0->1, READY on PASS run with sponsor requirements satisfied (overall 100), BLOCKED on BLOCK run (overall 40), DRAFT when provenance UNSIGNED, BLOCKED when provenance SIGNED+INVALID, asset/claim counts real, score penalization (SCOPE_DRIFT REVIEW -> evidence_coverage 90; NUMERICAL_DRIFT BLOCK -> numerical_integrity 75), 404/409 routes, latest-run selection (REVIEW->BLOCK = BLOCKED; BLOCK->PASS = READY).
+- **Verification**: full worker suite 179/179 green (162 baseline + 17 new); db 66/66; infra 37/37 with `release_passports` added to `TABLE_NAMES`; `pnpm -r typecheck` green 11/11 — all re-run on a clean worktree of branch `agent/w12/passport` (commit `6243464`, pushed), free of the parallel repair agent's uncommitted files.
+
+### Known Limitations
+
+- `assets` payload reflects the eval-versioned `GeneratedAsset`/its completion evidence; `source` fingerprints are read into the passport only where the frozen contract exposes them (contract is frozen — no field addition).
+- The shared worktree currently contains the parallel W10/W11 agent's uncommitted `0012_repair.sql` (adds `repair_actions`); while that file is on disk, `packages/infra` `creates all project tables` fails because `TABLE_NAMES` doesn't yet include `repair_actions`. Passport work is unaffected (branch-verified green); the failure will resolve when the repair stream commits its migration + updates `TABLE_NAMES`.
 
 ## Repository State
 
@@ -420,7 +438,7 @@ Wave 14 audience contracts (defined in `packages/schemas/src/audience.ts`, deep-
 | W9 | Independent Verification Engine | NOT STARTED |
 | W10 | Repair Engine | **IMPLEMENTED + TESTED** — Deterministic repair pipeline (`repair.ts`): SPONSOR_COMPLIANCE append, PLATFORM_QA truncation, CONTEXT_REMOVAL qualifier prefix, NUMERICAL_DRIFT positional token replacement. `RepairActionRepository` + migration `0012_repair.sql`. `POST /repair`, `POST /repair/:actionId/apply`, `GET /repair/actions`. 9 new tests (sponsor/title/numerical/scope-drift/no-repairs-honest/errors) — worker suite 171 total |
 | W11 | Re-Verification | **IMPLEMENTED + TESTED** — `POST /reverify` applies all PROPOSED actions for the resolved run then re-runs the real independent verifier. `packages/infra` d1.test.ts TABLE_NAMES updated. Part of W10 implementation (same branch) |
-| W12 | Release Passport | NOT STARTED |
+| W12 | Release Passport | **IMPLEMENTED + TESTED** — migration `0013_release_passports.sql`, `ReleasePassportRepository` (inherit from 66 db tests green), `buildReleasePassport` pipeline, `/passports` API (create/list/get/latest), 17 route+pipeline tests; merged with W10/W11 on `agent/w10-12/integration` |
 | W13 | Provenance Metadata | **COMPLETE + TESTED + DEPLOYED** — `ProvenanceRecord` frozen (18th contract), migration `0010_provenance.sql`, `ProvenanceRepository` (12 tests), `@crex/c2pa` package (22 tests), worker `/provenance/*` routes (14 tests); real R2 bytes hashed, honest `UNSIGNED` state; migration applied remotely + worker deployed (`1c6e716`, version `9e85ac61`); c2pa Python SDK NOT installable on this machine (py3exiv2 needs MSVC 14.0) |
 | W14 | Audience Context + Learning | **IMPLEMENTED + TESTED** — `@crex/audience` package (deterministic aggregation/insights/recommendations) + `packages/schemas/src/audience.ts` contracts + migration `0011_audience.sql` + 4 audience repositories + worker `/audience/*` API routes (profiles, observations, compute, context). Schemas 154, audience 12, db 66, worker 103 tests green |
 | W15 | End-to-End Integration | NOT STARTED |

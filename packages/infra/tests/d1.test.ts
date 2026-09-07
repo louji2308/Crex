@@ -20,6 +20,7 @@ const TABLE_NAMES = [
   "projects",
   "provenance_records",
   "repair_actions",
+  "release_passports",
   "semantic_sections",
   "source_assets",
   "source_uploads",

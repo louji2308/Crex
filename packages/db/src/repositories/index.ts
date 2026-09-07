@@ -16,6 +16,7 @@ export { AiOutputRepository } from "./ai-outputs";
 export { ConstraintRepository } from "./constraints";
 export { SponsorRequirementRepository } from "./sponsor-requirements";
 export { ProvenanceRepository } from "./provenance";
+export { ReleasePassportRepository } from "./release-passports";
 export { AudienceProfileRepository } from "./audience-profiles";
 export { AudienceObservationRepository } from "./audience-observations";
 export { AudienceInsightRepository } from "./audience-insights";

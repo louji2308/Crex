@@ -27,7 +27,11 @@ import { createUnderstandingApi } from "./understand-routes";
 import { createEvidenceGraphApi } from "./evidence-graph-routes";
 import { createVerificationApi } from "./verification-routes";
 import { createGenerationApi } from "./generation-routes";
+<<<<<<< HEAD
 import { createRepairApi } from "./repair-routes";
+=======
+import { createPassportApi } from "./passport-routes";
+>>>>>>> origin/agent/w12/passport
 import { errorResponse, errorResponseForCode } from "./http";
 import { IncrementalSha256 } from "@crex/media";
 
@@ -395,9 +399,13 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
   const generationResponse = await generationApi.handle(request, path);
   if (generationResponse !== null) return generationResponse;
 
-  const repairApi = createRepairApi(env);
+const repairApi = createRepairApi(env);
   const repairResponse = await repairApi.handle(request, path);
   if (repairResponse !== null) return repairResponse;
+
+  const passportApi = createPassportApi(env);
+  const passportResponse = await passportApi.handle(request, path);
+  if (passportResponse !== null) return passportResponse;
 
   return errorResponseForCode("NOT_FOUND", "route not found");
 }
