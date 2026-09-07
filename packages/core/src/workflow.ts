@@ -14,13 +14,16 @@ export type VerificationStatus = (typeof VERIFICATION_STATUS)[number];
 const PHASES: ReadonlySet<WorkflowPhase> = new Set(WORKFLOW_PHASE);
 const STAGES: readonly GenerationStage[] = GENERATION_STAGE;
 
-export function createWorkflowState(input: {
-  id: string;
-  project_id: string;
-  workflow_name: string;
-  stage: GenerationStage;
-  phase?: WorkflowPhase;
-}): WorkflowState {
+export function createWorkflowState(
+  input: {
+    id: string;
+    project_id: string;
+    workflow_name: string;
+    stage: GenerationStage;
+    phase?: WorkflowPhase;
+  },
+  now: string = new Date().toISOString(),
+): WorkflowState {
   const phase = input.phase ?? "QUEUED";
   return workflowStateSchema.parse({
     id: input.id,
@@ -28,8 +31,8 @@ export function createWorkflowState(input: {
     workflow_name: input.workflow_name,
     phase,
     stage: input.stage,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
+    created_at: now,
+    updated_at: now,
   });
 }
 
