@@ -4,7 +4,10 @@
   "private": true,
   "scripts": {
     "test": "pnpm -r test",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm -r typecheck",
+    "deploy:worker": "pnpm --filter @crex/worker exec wrangler deploy",
+    "migrate:local": "pnpm --filter @crex/worker exec wrangler d1 migrations apply crex --local",
+    "migrate:remote": "pnpm --filter @crex/worker exec wrangler d1 migrations apply crex --remote"
   },
   "packageManager": "pnpm@11.24.0",
   "engines": {
