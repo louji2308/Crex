@@ -28,6 +28,7 @@ import { createEvidenceGraphApi } from "./evidence-graph-routes";
 import { createVerificationApi } from "./verification-routes";
 import { createGenerationApi } from "./generation-routes";
 import { errorResponse, errorResponseForCode } from "./http";
+import { corsPreflight, withCors } from "./cors";
 import { IncrementalSha256 } from "@crex/media";
 
 const WORKFLOW_NAME = "crex-source-to-release";
@@ -276,10 +277,13 @@ async function recordWorkflowFailure(
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
+    if (request.method === "OPTIONS") {
+      return corsPreflight(request);
+    }
     try {
-      return await handleRequest(request, env);
+      return withCors(request, await handleRequest(request, env));
     } catch (error) {
-      return errorResponse(error);
+      return withCors(request, errorResponse(error));
     }
   },
 };
