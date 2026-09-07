@@ -83,6 +83,9 @@ export const providerOptionsSchema = z.strictObject({
   aiTimeoutMs: z.number().int().min(1),
   aiMaxRetries: z.number().int().min(0),
   aiRetryBaseDelayMs: z.number().int().min(1),
+  sttPrimaryProvider: z.enum(["mistral", "openrouter"]).default("mistral"),
+  sttMistralModel: z.string().min(1).default("voxtral-mini-2505"),
+  sttOpenrouterModel: z.string().min(1).default("openai/whisper-large-v3"),
 });
 
 export type ProviderOptions = z.infer<typeof providerOptionsSchema>;

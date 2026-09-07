@@ -21,6 +21,9 @@ import {
 import { mapInstanceStatusToPhase } from "./workflows/status-mapping";
 import { createSourcesApi } from "./sources-routes";
 import { createContractsApi } from "./contracts-routes";
+import { createProvenanceApi } from "./provenance-routes";
+import { createAudienceApi } from "./audience-routes";
+import { createUnderstandingApi } from "./understand-routes";
 import { errorResponse, errorResponseForCode } from "./http";
 import { IncrementalSha256 } from "@crex/media";
 
@@ -356,6 +359,18 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
   const contractsApi = createContractsApi(env);
   const contractResponse = await contractsApi.handle(request, path);
   if (contractResponse !== null) return contractResponse;
+
+  const provenanceApi = createProvenanceApi(env);
+  const provenanceResponse = await provenanceApi.handle(request, path);
+  if (provenanceResponse !== null) return provenanceResponse;
+
+  const audienceApi = createAudienceApi(env);
+  const audienceResponse = await audienceApi.handle(request, path);
+  if (audienceResponse !== null) return audienceResponse;
+
+  const understandingApi = createUnderstandingApi(env);
+  const understandingResponse = await understandingApi.handle(request, path);
+  if (understandingResponse !== null) return understandingResponse;
 
   return errorResponseForCode("NOT_FOUND", "route not found");
 }

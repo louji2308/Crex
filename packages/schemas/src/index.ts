@@ -7,3 +7,5 @@ export * from "./domain";
 export * from "./api";
 export * from "./registry";
 export * from "./ai-tasks";
+export { transcriptSchema, semanticSectionSchema, understandingSchema } from "./domain";
+export type { Transcript, SemanticSection, Understanding } from "./domain";

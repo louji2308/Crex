@@ -35,3 +35,15 @@ export type {
   ProviderRequestId,
   ProviderOptions,
 } from "./types.js";
+export {
+  createSttProvider,
+  withSttFallback,
+} from "./stt.js";
+export type {
+  SttProvider,
+  SttTranscribeOptions,
+  SttTranscriptionResult,
+  SttSegment,
+  CreateSttProviderOptions,
+  WithSttFallbackOptions,
+} from "./stt.js";

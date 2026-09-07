@@ -29,6 +29,9 @@ export interface AiEnv {
   AI_TIMEOUT_MS?: string;
   AI_MAX_RETRIES?: string;
   AI_RETRY_BASE_DELAY_MS?: string;
+  STT_PRIMARY_PROVIDER?: string;
+  STT_MISTRAL_MODEL?: string;
+  STT_OPENROUTER_MODEL?: string;
 }
 
 function positiveInt(value: string | undefined, fallback: number): number {
@@ -55,6 +58,9 @@ export function buildProviderOptions(env: AiEnv): ProviderOptions {
     aiTimeoutMs: positiveInt(env.AI_TIMEOUT_MS, DEFAULT_AI_TIMEOUT_MS),
     aiMaxRetries: nonNegativeInt(env.AI_MAX_RETRIES, DEFAULT_AI_MAX_RETRIES),
     aiRetryBaseDelayMs: positiveInt(env.AI_RETRY_BASE_DELAY_MS, DEFAULT_AI_RETRY_BASE_DELAY_MS),
+    sttPrimaryProvider: (env.STT_PRIMARY_PROVIDER as "mistral" | "openrouter") || "mistral",
+    sttMistralModel: env.STT_MISTRAL_MODEL || "voxtral-mini-2505",
+    sttOpenrouterModel: env.STT_OPENROUTER_MODEL || "openai/whisper-large-v3",
   };
 }
 

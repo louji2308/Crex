@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isoDateTimeSchema, scoreSchema, sourceRangeSchema, uuidSchema } from "./primitives";
+import { isoDateTimeSchema, scoreSchema, sha256HexSchema, sourceRangeSchema, uuidSchema } from "./primitives";
 import {
   assetStatusSchema,
   assetTypeSchema,
@@ -10,6 +10,8 @@ import {
   findingTypeSchema,
   generationStageSchema,
   platformSchema,
+  provenanceSigningStatusSchema,
+  provenanceVerificationStatusSchema,
   releaseStatusSchema,
   repairStatusSchema,
   sourceStateSchema,
@@ -100,6 +102,73 @@ export const transcriptSegmentSchema = z
   });
 
 export type TranscriptSegment = z.infer<typeof transcriptSegmentSchema>;
+
+export const understandingSchema = z
+  .strictObject({
+    id: uuidSchema,
+    source_asset_id: uuidSchema,
+    status: z.string().min(1),
+    media_metadata_json: z.string().optional(),
+    transcript_id: uuidSchema.optional(),
+    created_at: isoDateTimeSchema,
+    updated_at: isoDateTimeSchema,
+  })
+  .superRefine((segment, ctx) => {
+    // validation enforced at DB level
+  });
+
+export type Understanding = z.infer<typeof understandingSchema>;
+
+export const transcriptSchema = z
+  .strictObject({
+    id: uuidSchema,
+    source_asset_id: uuidSchema,
+    language: z.string().min(1),
+    duration_seconds: z.number().nonnegative(),
+    provider: z.string().min(1),
+    model: z.string().min(1),
+    fallback_used: z.boolean(),
+    status: z.string().min(1),
+    created_at: isoDateTimeSchema,
+    updated_at: isoDateTimeSchema,
+  })
+  .superRefine((segment, ctx) => {
+    if (segment.duration_seconds <= 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["duration_seconds"],
+        message: "duration_seconds must be positive",
+      });
+    }
+  });
+
+export type Transcript = z.infer<typeof transcriptSchema>;
+
+export const semanticSectionSchema = z
+  .strictObject({
+    id: uuidSchema,
+    understanding_id: uuidSchema,
+    type: z.string().min(1),
+    start_ms: z.number().int().nonnegative(),
+    end_ms: z.number().int().nonnegative(),
+    title: z.string().min(1),
+    transcript_segment_ids: z.array(z.string().uuid()),
+    summary: z.string().optional(),
+    confidence: z.number().min(0).max(1).optional(),
+    created_at: isoDateTimeSchema,
+    updated_at: isoDateTimeSchema,
+  })
+  .superRefine((section, ctx) => {
+    if (section.start_ms > section.end_ms) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["end_ms"],
+        message: "end_ms must not precede start_ms",
+      });
+    }
+  });
+
+export type SemanticSection = z.infer<typeof semanticSectionSchema>;
 
 export const claimSchema = z.strictObject({
   id: uuidSchema,
@@ -282,3 +351,33 @@ export const releasePassportSchema = z.strictObject({
 });
 
 export type ReleasePassport = z.infer<typeof releasePassportSchema>;
+
+export const c2paSignerSchema = z.strictObject({
+  name: z.string().min(1),
+  issuer: z.string().min(1),
+});
+
+export type C2paSigner = z.infer<typeof c2paSignerSchema>;
+
+export const c2paManifestSchema = z.strictObject({
+  manifest_json: z.record(z.string(), z.unknown()),
+  signer: c2paSignerSchema.optional(),
+  embedded_at: isoDateTimeSchema.optional(),
+  signature_verified: z.boolean(),
+});
+
+export type C2paManifest = z.infer<typeof c2paManifestSchema>;
+
+export const provenanceRecordSchema = z.strictObject({
+  id: uuidSchema,
+  project_id: uuidSchema,
+  asset_id: uuidSchema,
+  asset_sha256: sha256HexSchema,
+  manifest: c2paManifestSchema.optional(),
+  signing_status: provenanceSigningStatusSchema,
+  verification_status: provenanceVerificationStatusSchema,
+  created_at: isoDateTimeSchema,
+  updated_at: isoDateTimeSchema,
+});
+
+export type ProvenanceRecord = z.infer<typeof provenanceRecordSchema>;
