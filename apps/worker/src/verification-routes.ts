@@ -113,9 +113,8 @@ export function createVerificationApi(env: Env, deps?: Partial<VerificationApiDe
     if (!(await resolved.projectExists(projectId))) {
       throw new CrexError("PROJECT_NOT_FOUND", `project not found: ${projectId}`);
     }
-    const runs = await runRepo.list();
-    const filtered = runs.filter((r) => r.project_id === projectId);
-    return Response.json({ runs: filtered });
+    const runs = await runRepo.listByProject(projectId);
+    return Response.json({ runs });
   }
 
   async function handleListFindings(runId: string): Promise<Response> {

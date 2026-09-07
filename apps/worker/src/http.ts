@@ -53,7 +53,7 @@ export function errorResponse(error: unknown): Response {
       ? error.toApiError()
       : {
           code: "INTERNAL_ERROR",
-          message: error instanceof Error ? error.message : "internal error",
+          message: "internal error",
         };
   return Response.json({ error: apiError }, { status: toHttpStatus(apiError.code) });
 }

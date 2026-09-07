@@ -27,6 +27,15 @@ export class VerificationRunRepository {
     return listRows<VerificationRun>(this.db, `SELECT * FROM ${TABLE} ORDER BY started_at`, [], JSON_FIELDS);
   }
 
+  async listByProject(projectId: string): Promise<VerificationRun[]> {
+    return listRows<VerificationRun>(
+      this.db,
+      `SELECT * FROM ${TABLE} WHERE project_id = ? ORDER BY started_at`,
+      [projectId],
+      JSON_FIELDS,
+    );
+  }
+
   async listByAsset(assetId: string): Promise<VerificationRun[]> {
     return listRows<VerificationRun>(
       this.db,

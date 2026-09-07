@@ -244,7 +244,7 @@ if (Number.isFinite(contentLength)) {
         try {
           await resolved.putObject(session.objectKey, piped, session.fileType);
         } catch (error) {
-          if (!(error instanceof CrexError) && count > contentLength) {
+          if (!(error instanceof CrexError) && count !== contentLength) {
             throw new CrexError(
               "SOURCE_TOO_LARGE",
               "upload body does not match declared content-length",
@@ -320,14 +320,15 @@ if (Number.isFinite(contentLength)) {
         throw error;
       }
       const message = error instanceof Error ? error.message : String(error);
-      await resolved.markFailed(uploadId, message).catch(() => undefined);
+      console.error(`source upload ${uploadId} failed: ${message}`);
+      await resolved.markFailed(uploadId, "upload failed").catch(() => undefined);
       await resolved.deleteObject(session.objectKey).catch(() => undefined);
       await resolved.getAssetByKey(session.objectKey).then(async (asset) => {
         if (asset !== undefined) {
           await resolved.transitionAsset(asset.id, "FAILED").catch(() => undefined);
         }
       });
-      throw new CrexError("STORAGE_UPLOAD_FAILED", message);
+      throw new CrexError("STORAGE_UPLOAD_FAILED", "upload failed");
     }
   }
 

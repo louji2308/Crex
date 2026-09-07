@@ -343,8 +343,8 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
 
   if (request.method === "GET" && path.startsWith("/workflows/source-to-release/")) {
     const id = decodeURIComponent(path.slice("/workflows/source-to-release/".length));
-    if (id.length === 0) {
-      return errorResponseForCode("INVALID_WORKFLOW_ID", "workflow id is required");
+    if (id.length === 0 || !isUuid(id)) {
+      return errorResponseForCode("INVALID_WORKFLOW_ID", "workflow id must be a canonical UUID");
     }
     const instance = await env.SOURCE_TO_RELEASE.get(id).catch(() => undefined);
     if (instance === undefined) {
