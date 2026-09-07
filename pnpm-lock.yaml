@@ -20,6 +20,28 @@ importers:
         specifier: ^4.129.0
         version: 4.129.0
 
+  packages/ai:
+    dependencies:
+      '@crex/core':
+        specifier: workspace:*
+        version: link:../core
+      '@crex/schemas':
+        specifier: workspace:*
+        version: link:../schemas
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.13.3
+      typescript:
+        specifier: ^5.6.0
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.0
+        version: 3.2.7(@types/node@24.13.3)(supports-color@10.2.2)
+
   packages/core:
     dependencies:
       '@crex/db':
@@ -51,6 +73,25 @@ importers:
       '@types/node':
         specifier: ^24.0.0
         version: 24.13.3
+      typescript:
+        specifier: ^5.6.0
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.0
+        version: 3.2.7(@types/node@24.13.3)(supports-color@10.2.2)
+
+  packages/infra:
+    dependencies:
+      '@crex/db':
+        specifier: workspace:*
+        version: link:../db
+    devDependencies:
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.13.3
+      miniflare:
+        specifier: 5.20260903.0-alpha
+        version: 5.20260903.0-alpha
       typescript:
         specifier: ^5.6.0
         version: 5.9.3
