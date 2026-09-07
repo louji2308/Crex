@@ -213,4 +213,84 @@ describe("source ingestion", () => {
     expect(body.error.message).not.toContain("FixedLength");
     expect(body.error.message).not.toContain("R2");
   });
+
+  it("returns 413 SOURCE_TOO_LARGE when body is shorter than declared content-length", async () => {
+    await seedProject();
+    const created = await createUpload(PROJECT_UUID, "short-body.mp4");
+    const createdBody = (await created.json()) as { uploadId: string };
+    const tinyBody = new Uint8Array(5).fill(1);
+    const declaredLength = 10_000;
+    const api = createSourcesApi(env, { maxSizeBytes: 50_000_000 });
+    const res = await api.handle(
+      new Request(`https://example.com/sources/${createdBody.uploadId}/blob`, {
+        method: "PUT",
+        headers: {
+          "content-type": "application/octet-stream",
+          "content-length": String(declaredLength),
+        },
+        body: new Blob([tinyBody.buffer as ArrayBuffer]),
+      }),
+      `/sources/${createdBody.uploadId}/blob`,
+    );
+    expect(res).not.toBeNull();
+    expect(res!.status).toBe(413);
+    const body = (await res!.json()) as ErrorBody;
+    expect(body.error.code).toBe("SOURCE_TOO_LARGE");
+
+    const poll = await exports.default.fetch(`https://example.com/sources/${createdBody.uploadId}`);
+    const pollBody = (await poll.json()) as { uploadStatus: string; error: string };
+    expect(pollBody.uploadStatus).toBe("FAILED");
+  });
+
+  it("redacts internal error details on generic upload failure", async () => {
+    await seedProject();
+    const created = await createUpload(PROJECT_UUID, "redact.mp4");
+    const createdBody = (await created.json()) as { uploadId: string };
+    const putBytes = buildMp4({ durationSeconds: 2, video: { codec: "avc1", width: 64, height: 64 } });
+    const api = createSourcesApi(env, {
+      maxSizeBytes: 10_000_000,
+      putObject: async (key, value) => {
+        const reader = (value as ReadableStream<Uint8Array>).getReader();
+        try {
+          for (;;) {
+            const { done } = await reader.read();
+            if (done) {
+              break;
+            }
+          }
+        } finally {
+          reader.releaseLock();
+        }
+        throw new Error(
+          "R2 upstream rejected PUT: bucket 'crex-media' returned XTMPB08 capacity error (trace: upstream-detail-42)",
+        );
+      },
+    });
+    const res = await api.handle(
+      new Request(`https://example.com/sources/${createdBody.uploadId}/blob`, {
+        method: "PUT",
+        headers: {
+          "content-type": "application/octet-stream",
+          "content-length": String(putBytes.byteLength),
+        },
+        body: new Uint8Array(putBytes),
+      }),
+      `/sources/${createdBody.uploadId}/blob`,
+    );
+    expect(res).not.toBeNull();
+    expect(res!.status).toBe(502);
+    const text = await res!.text();
+    expect(text).not.toContain("R2");
+    expect(text).not.toContain("crex-media");
+    expect(text).not.toContain("upstream-detail-42");
+    const body = JSON.parse(text) as ErrorBody;
+    expect(body.error.code).toBe("STORAGE_UPLOAD_FAILED");
+    expect(body.error.message).toBe("upload failed");
+
+    const poll = await exports.default.fetch(`https://example.com/sources/${createdBody.uploadId}`);
+    const pollBody = (await poll.json()) as { uploadStatus: string; error: string };
+    expect(pollBody.uploadStatus).toBe("FAILED");
+    expect(pollBody.error).toBe("upload failed");
+    expect(pollBody.error).not.toContain("upstream-detail-42");
+  });
 });

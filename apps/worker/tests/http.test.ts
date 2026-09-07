@@ -45,7 +45,16 @@ describe("errorResponse", () => {
     expect(response.status).toBe(500);
     const body = (await response.json()) as { error: { code: string; message: string } };
     expect(body.error.code).toBe("INTERNAL_ERROR");
-    expect(body.error.message).toBe("boom");
+    expect(body.error.message).toBe("internal error");
+  });
+
+  it("does not leak internal error details to the client", async () => {
+    const raw = new Error("SELECT * FROM secrets -- provider token abc123");
+    const response = errorResponse(raw);
+    const text = await response.text();
+    expect(text).not.toContain("secrets");
+    expect(text).not.toContain("provider token");
+    expect(text).not.toContain("abc123");
   });
 });
 
