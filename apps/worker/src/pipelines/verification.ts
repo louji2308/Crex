@@ -381,7 +381,7 @@ function extractNumbers(text: string): number[] {
       if (suffix !== undefined && suffix in SUFFIX_MULTIPLIERS) {
         const num = parseFloat(cleaned.slice(0, -1));
         if (Number.isNaN(num)) return NaN;
-        return num * SUFFIX_MULTIPLIERS[suffix];
+        return num * (SUFFIX_MULTIPLIERS[suffix]!);
       }
       return parseFloat(cleaned);
     })
