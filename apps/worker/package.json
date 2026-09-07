@@ -16,6 +16,7 @@
     "@crex/core": "workspace:*",
     "@crex/db": "workspace:*",
     "@crex/infra": "workspace:*",
+    "@crex/media": "workspace:*",
     "@crex/schemas": "workspace:*",
     "zod": "^3.23.8"
   },

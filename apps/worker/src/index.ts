@@ -6,6 +6,7 @@ import { CrexError } from "@crex/core/src/errors";
 import { D1Adapter, R2ObjectStore } from "@crex/infra";
 import type { R2BucketBinding } from "@crex/infra";
 import { WorkflowStateRepository } from "@crex/db/src/repositories/workflow-state";
+import { SourceAssetRepository } from "@crex/db/src/repositories/source-assets";
 import { AiOutputRepository } from "@crex/db/src/repositories/ai-outputs";
 import type { AiOutput } from "@crex/schemas/src/api";
 import { AI_TASK } from "@crex/schemas/src/enums";
@@ -18,12 +19,15 @@ import {
   runGenerationTask,
 } from "./workflows/ai-output";
 import { mapInstanceStatusToPhase } from "./workflows/status-mapping";
+import { createSourcesApi } from "./sources-routes";
 import { errorResponse, errorResponseForCode } from "./http";
+import { IncrementalSha256 } from "@crex/media";
 
 const WORKFLOW_NAME = "crex-source-to-release";
 
 export interface SourceToReleaseParams {
   projectId: string;
+  sourceId?: string;
 }
 
 export interface WorkflowResult {
@@ -33,6 +37,7 @@ export interface WorkflowResult {
   phase: WorkflowPhase;
   started: boolean;
   infra: { db: boolean; r2: boolean };
+  source?: { sourceId?: string; status: string };
 }
 
 export class SourceToReleaseWorkflow extends WorkflowEntrypoint<Env, SourceToReleaseParams> {
@@ -95,6 +100,22 @@ export class SourceToReleaseWorkflow extends WorkflowEntrypoint<Env, SourceToRel
         },
       );
 
+      const sourceId = event.payload.sourceId;
+      const ingested = await step.do(
+        "ingest-source-asset",
+        { retries: { limit: 2, delay: "1 second", backoff: "exponential" } },
+        async () => {
+          if (sourceId === undefined) {
+            return { sourceId: undefined, status: "SKIPPED" };
+          }
+          const result = await ingestSourceAsset(db, r2, sourceId, projectId);
+          await db.prepare(
+            `UPDATE workflow_state SET stage = ?, updated_at = ? WHERE id = ?`,
+          ).run("SOURCE_INGESTION", new Date().toISOString(), instanceId);
+          return result;
+        },
+      );
+
       await step.do("record-completion", async () => {
         const now = new Date().toISOString();
         const current = await repository.get(instanceId);
@@ -128,6 +149,7 @@ export class SourceToReleaseWorkflow extends WorkflowEntrypoint<Env, SourceToRel
         phase: "COMPLETED",
         started: bootstrap.created,
         infra,
+        source: ingested,
       };
     } catch (error) {
       await recordWorkflowFailure(db, instanceId, error).catch(() => undefined);
@@ -152,6 +174,85 @@ async function probeR2(r2: R2ObjectStore): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+interface IngestResult {
+  sourceId: string;
+  status: "READY";
+}
+
+async function ingestSourceAsset(
+  db: D1Adapter,
+  r2: R2ObjectStore,
+  sourceId: string,
+  projectId: string,
+): Promise<IngestResult> {
+  const sources = new SourceAssetRepository(db);
+  const source = await sources.get(sourceId);
+  if (source === undefined) {
+    throw new CrexError("SOURCE_NOT_FOUND", `source not found: ${sourceId}`);
+  }
+  if (source.project_id !== projectId) {
+    throw new CrexError(
+      "INVALID_SOURCE_STATE",
+      `source ${sourceId} does not belong to project ${projectId}`,
+    );
+  }
+  if (source.status !== "VALID") {
+    throw new CrexError(
+      "INVALID_SOURCE_STATE",
+      `source ${sourceId} has status ${source.status}; expected VALID`,
+    );
+  }
+
+  const head = await r2.head(source.object_key);
+  if (head === null || head.size !== source.size_bytes) {
+    await sources.transition(sourceId, "FAILED", { onlyIfIn: ["VALID", "PROCESSING"] })
+      .catch(() => undefined);
+    throw new CrexError(
+      "SOURCE_CHECKSUM_MISMATCH",
+      `source ${sourceId} object size does not match stored metadata`,
+    );
+  }
+
+  const object = await r2.get(source.object_key);
+  if (object === null || object.body === null) {
+    await sources.transition(sourceId, "FAILED", { onlyIfIn: ["VALID", "PROCESSING"] })
+      .catch(() => undefined);
+    throw new CrexError(
+      "STORAGE_UPLOAD_FAILED",
+      `source ${sourceId} object could not be read back from R2`,
+    );
+  }
+
+  const expected = source.checksum?.replace(/^sha256:/, "");
+  if (expected !== undefined && expected.length > 0) {
+    const hasher = new IncrementalSha256();
+    const reader = object.body.getReader();
+    try {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) {
+          break;
+        }
+        hasher.update(value);
+      }
+    } finally {
+      reader.releaseLock();
+    }
+    if (hasher.digestHex() !== expected) {
+      await sources.transition(sourceId, "FAILED", { onlyIfIn: ["VALID", "PROCESSING"] })
+        .catch(() => undefined);
+      throw new CrexError(
+        "SOURCE_CHECKSUM_MISMATCH",
+        `source ${sourceId} hash does not match stored checksum`,
+      );
+    }
+  }
+
+  await sources.transition(sourceId, "PROCESSING");
+  await sources.transition(sourceId, "READY");
+  return { sourceId, status: "READY" };
 }
 
 async function recordWorkflowFailure(
@@ -193,24 +294,31 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
   }
 
   if (request.method === "POST" && path === "/workflows/source-to-release") {
-    let body: { projectId?: unknown; id?: unknown } = {};
+    let body: { projectId?: unknown; id?: unknown; sourceId?: unknown } = {};
     try {
-      body = await request.json() as { projectId?: unknown; id?: unknown };
+      body = await request.json() as { projectId?: unknown; id?: unknown; sourceId?: unknown };
     } catch {
       return errorResponseForCode("INVALID_BODY", "request body must be valid JSON");
     }
-    const { projectId, id } = body;
+    const { projectId, id, sourceId } = body;
     if (typeof projectId !== "string" || !isUuid(projectId)) {
       return errorResponseForCode("INVALID_PROJECT_ID", "projectId must be a canonical UUID");
     }
     if (id !== undefined && (typeof id !== "string" || !isUuid(id))) {
       return errorResponseForCode("INVALID_WORKFLOW_ID", "workflow id must be a canonical UUID");
     }
+    if (sourceId !== undefined && (typeof sourceId !== "string" || !isUuid(sourceId))) {
+      return errorResponseForCode("INVALID_SOURCE_ID", "sourceId must be a canonical UUID");
+    }
     if (!(await projectExists(new D1Adapter(env.DB), projectId))) {
       return errorResponseForCode("PROJECT_NOT_FOUND", `project not found: ${projectId}`);
     }
     const workflowId = id ?? crypto.randomUUID();
-    const instance = await env.SOURCE_TO_RELEASE.create({ id: workflowId, params: { projectId } });
+    const params: SourceToReleaseParams = { projectId };
+    if (sourceId !== undefined) {
+      params.sourceId = sourceId;
+    }
+    const instance = await env.SOURCE_TO_RELEASE.create({ id: workflowId, params });
     const status = await instance.status();
     return Response.json({
       id: instance.id,
@@ -239,6 +347,10 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
   if (request.method === "POST" && path === "/ai/analyze") {
     return await handleAnalyze(request, env);
   }
+
+  const sourcesApi = createSourcesApi(env);
+  const sourceResponse = await sourcesApi.handle(request, path);
+  if (sourceResponse !== null) return sourceResponse;
 
   return errorResponseForCode("NOT_FOUND", "route not found");
 }

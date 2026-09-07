@@ -22,6 +22,9 @@ importers:
       '@crex/infra':
         specifier: workspace:*
         version: link:../../packages/infra
+      '@crex/media':
+        specifier: workspace:*
+        version: link:../../packages/media
       '@crex/schemas':
         specifier: workspace:*
         version: link:../../packages/schemas

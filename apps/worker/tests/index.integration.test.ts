@@ -3,6 +3,8 @@ import { introspectWorkflowInstance } from "cloudflare:test";
 import { env, exports } from "cloudflare:workers";
 import { D1Adapter } from "@crex/infra";
 import { WorkflowStateRepository } from "@crex/db/src/repositories/workflow-state";
+import { SourceAssetRepository } from "@crex/db/src/repositories/source-assets";
+import { buildMp4 } from "@crex/media";
 
 interface HealthBody {
   ok: boolean;
@@ -128,6 +130,47 @@ describe("crex-worker HTTP API", () => {
   it("unknown route returns 404", async () => {
     const res = await exports.default.fetch("https://example.com/nope");
     expect(res.status).toBe(404);
+  });
+
+  it("POST /workflows/source-to-release with sourceId ingests the source to READY", async () => {
+    await seedProject();
+    const created = await exports.default.fetch("https://example.com/sources", {
+      method: "POST",
+      body: JSON.stringify({ projectId: PROJECT_UUID, fileName: "clip.mp4" }),
+    });
+    expect(created.status).toBe(201);
+    const createdBody = (await created.json()) as { uploadId: string };
+    const putBytes = buildMp4({ durationSeconds: 2, video: { codec: "avc1", width: 64, height: 64 } });
+    const put = await exports.default.fetch(
+      `https://example.com/sources/${createdBody.uploadId}/blob`,
+      {
+        method: "PUT",
+        headers: { "content-type": "application/octet-stream", "content-length": String(putBytes.byteLength) },
+        body: new Uint8Array(putBytes),
+      },
+    );
+    expect(put.status).toBe(200);
+    const putBody = (await put.json()) as { status: string };
+    expect(putBody.status).toBe("VALID");
+
+    const res = await exports.default.fetch("https://example.com/workflows/source-to-release", {
+      method: "POST",
+      body: JSON.stringify({ projectId: PROJECT_UUID, id: WORKFLOW2_UUID, sourceId: createdBody.uploadId }),
+    });
+    expect(res.status).toBe(200);
+    const introspector = await introspectWorkflowInstance(env.SOURCE_TO_RELEASE, WORKFLOW2_UUID);
+    try {
+      await introspector.waitForStatus("complete");
+    } finally {
+      await introspector.dispose();
+    }
+    const source = await new SourceAssetRepository(new D1Adapter(env.DB)).get(createdBody.uploadId);
+    expect(source?.status).toBe("READY");
+    expect(source?.checksum).toMatch(/^sha256:[0-9a-f]{64}$/);
+    const row = await new D1Adapter(env.DB)
+      .prepare("SELECT phase, stage FROM workflow_state WHERE id = ?")
+      .get(WORKFLOW2_UUID);
+    expect(row?.["phase"]).toBe("COMPLETED");
   });
 
   it("POST /ai/analyze rejects non-UUID projectId", async () => {

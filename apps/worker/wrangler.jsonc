@@ -14,7 +14,8 @@
     "MISTRAL_MODEL": "mistral-large-latest",
     "AI_TIMEOUT_MS": "60000",
     "AI_MAX_RETRIES": "2",
-    "AI_RETRY_BASE_DELAY_MS": "1000"
+    "AI_RETRY_BASE_DELAY_MS": "1000",
+    "SOURCE_MAX_SIZE_BYTES": "104857600"
   },
   "d1_databases": [
     {
