@@ -89,7 +89,7 @@ Status: **PASSED** (verified this session; no separate security-review artifact 
 
 - c2pa Python SDK not installable on this build machine (`py3exiv2` requires MSVC 14.0 Build Tools); signed embedding + full verification integration tests are gated/skipped with an explicit printed reason. Deployment environments must install the SDK (and MSVC prerequisite) to enable real signing.
 - Contract registry entries for `Transcript`/`SemanticSection`/`Understanding` were removed during integration because no corresponding `domain.ts` schemas existed in this working tree at integration time (sibling streams in flight) — if those contracts are re-added by a sibling stream, the registry/conformance suites must be re-aligned.
-- New migrations `0007`-`0011` are applied locally (emulated D1) but NOT yet applied to the remote production D1, and the worker was not redeployed with v2/provenance routes.
+- RESOLVED: Migrations `0007`-`0011` applied to remote production D1 (all 23 tables verified via `d1 execute`); worker redeployed at `1c6e716` (version `9e85ac61`), `/health` returns 200 (db/r2/workflow true).
 
 ## Wave 14: Audience Context + Learning (IMPLEMENTED + TESTED)
 
@@ -252,7 +252,7 @@ The approved architecture is:
 
 ## Blocked
 
-- **Real signed C2PA embedding/verification** — `pip install c2pa` fails on this build machine (`py3exiv2` requires MSVC 14.0 Build Tools). Not faked: records persist `UNSIGNED`; signed path gated in `@crex/c2pa` tests with explicit skip reason. Unblocks only on a machine with the C++ toolchain / a working `c2pa-python` install.
+- **Real signed C2PA embedding/verification** — `pip install c2pa` fails on this build machine (`py3exiv2` requires MSVC 14.0 Build Tools). Not faked: records persist `UNSIGNED`; signed path gated in `@crex/c2pa` tests with explicit skip reason. Unblocks on any environment where `c2pa-python` installs (needs the MSVC 14.0 C++ toolchain on Windows, or plain `pip install c2pa` on Linux/macOS/WSL).
 
 ---
 
@@ -418,7 +418,7 @@ Wave 14 audience contracts (defined in `packages/schemas/src/audience.ts`, deep-
 | W10 | Repair Engine | NOT STARTED |
 | W11 | Re-Verification | NOT STARTED |
 | W12 | Release Passport | NOT STARTED |
-| W13 | Provenance Metadata | **COMPLETE + TESTED** — `ProvenanceRecord` frozen (18th contract), migration `0010_provenance.sql`, `ProvenanceRepository` (12 tests), `@crex/c2pa` package (22 tests), worker `/provenance/*` routes (14 tests); real R2 bytes hashed, honest `UNSIGNED` state; c2pa Python SDK NOT installable on this machine (py3exiv2 needs MSVC 14.0) |
+| W13 | Provenance Metadata | **COMPLETE + TESTED + DEPLOYED** — `ProvenanceRecord` frozen (18th contract), migration `0010_provenance.sql`, `ProvenanceRepository` (12 tests), `@crex/c2pa` package (22 tests), worker `/provenance/*` routes (14 tests); real R2 bytes hashed, honest `UNSIGNED` state; migration applied remotely + worker deployed (`1c6e716`, version `9e85ac61`); c2pa Python SDK NOT installable on this machine (py3exiv2 needs MSVC 14.0) |
 | W14 | Audience Context + Learning | **IMPLEMENTED + TESTED** — `@crex/audience` package (deterministic aggregation/insights/recommendations) + `packages/schemas/src/audience.ts` contracts + migration `0011_audience.sql` + 4 audience repositories + worker `/audience/*` API routes (profiles, observations, compute, context). Schemas 154, audience 12, db 66, worker 96 tests green |
 | W15 | End-to-End Integration | NOT STARTED |
 | W16 | Adversarial Benchmark | COMPLETE (29/33 passing; 4 pre-existing failures in timing/semantic drift) |
