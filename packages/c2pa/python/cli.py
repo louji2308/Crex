@@ -57,6 +57,41 @@ def _builder_manifest(manifest_data: dict):
     return bm
 
 
+def _unwrap(value):
+    """Guard against doubly-encoded JSON strings."""
+    for _ in range(2):
+        if isinstance(value, str):
+            try:
+                value = json.loads(value)
+            except (json.JSONDecodeError, TypeError):
+                break
+        else:
+            break
+    return value
+
+
+def _jget(obj, key, default=None):
+    obj = _unwrap(obj)
+    if not isinstance(obj, dict):
+        return default
+    value = obj.get(key, default)
+    return _unwrap(value)
+
+
+def _code_list(section):
+    section = _unwrap(section)
+    if not isinstance(section, list):
+        return []
+    codes = []
+    for item in section:
+        item = _unwrap(item)
+        if isinstance(item, dict):
+            code = item.get("code")
+            if code:
+                codes.append(code)
+    return codes
+
+
 def cmd_embed(args: argparse.Namespace) -> None:
     """Embed a C2PA manifest into a media file."""
     try:
@@ -116,50 +151,123 @@ def cmd_verify(args: argparse.Namespace) -> None:
             print(json.dumps({"error": f"Input file not found: {args.input}"}), file=sys.stderr)
             sys.exit(1)
 
-        reader = c2pa.Reader(args.input)
-        store = json.loads(reader.json())
+        # Optional trust anchors make the verification verdict honest: a
+        # signature is "Trusted" only when its chain resolves to an anchor
+        # the operator explicitly trusts.
+        context = None
+        if args.trust_anchors:
+            anchors_pem = _read_pem(args.trust_anchors, "trust anchors")
+            settings = c2pa.Settings.from_dict(
+                {"trust": {"user_anchors": anchors_pem}}
+            )
+            context = c2pa.Context.builder().with_settings(settings).build()
 
-        result = {"manifests": []}
+        reader = c2pa.Reader.try_create(args.input, context=context)
+        store = _unwrap(json.loads(reader.json()))
 
-        if isinstance(store, dict):
-            manifests = store.get("manifests") or {}
-            active = store.get("active_manifest")
-            keys = [active] if active and active in manifests else list(manifests.keys())
+        result = {
+            "state": "missing",
+            "signature_valid": False,
+            "signature_trusted": False,
+            "status": [],
+            "manifests": [],
+        }
 
-            for label in keys:
-                claim = manifests.get(label) or {}
-                sig = store.get("signature") or claim.get("signature")
+        if not isinstance(store, dict):
+            print(json.dumps(result))
+            return
 
-                ingredients = []
-                for ing in claim.get("ingredients") or []:
-                    digest = ing.get("digest")
-                    hash_alg = None
-                    hash_val = digest
-                    if digest and ":" in str(digest):
-                        hash_alg, hash_val = str(digest).split(":", 1)
-                    ingredients.append({
-                        "title": ing.get("title"),
-                        "hash": hash_val,
-                        "hash_alg": hash_alg,
-                    })
+        # Top-level validation output from the CAI reader.
+        validation_state = _jget(store, "validation_state")
+        validation_status = store.get("validation_status") or []
+        statuses = []
+        for item in _unwrap(validation_status):
+            item = _unwrap(item)
+            if isinstance(item, dict):
+                statuses.append({
+                    "code": item.get("code"),
+                    "explanation": item.get("explanation"),
+                    "url": item.get("url"),
+                })
 
-                m_info = {
-                    "label": claim.get("label", label),
-                    "claim_generator": claim.get("claim_generator"),
-                    "title": claim.get("title"),
-                    "format": claim.get("format"),
-                    "signature": None,
-                    "ingredients": ingredients,
+        # Trusted/anchor status may be reported inside the validation
+        # results' success codes instead of the top-level status list.
+        success_codes = []
+        validation_results = _jget(store, "validation_results") or _jget(store, "results") or {}
+        for section in validation_results.values():
+            section = _unwrap(section)
+            if isinstance(section, dict):
+                success_codes += _code_list(section.get("success"))
+            elif isinstance(section, list):
+                success_codes += _code_list(section)
+        if any(code == "claimSignature.validated" for code in success_codes):
+            result["signature_valid"] = True
+        if any(code == "signingCredential.trusted" for code in success_codes):
+            result["signature_trusted"] = True
+        result["status"] = statuses
+
+        manifests = _jget(store, "manifests") or {}
+        active = _jget(store, "active_manifest")
+        keys = [active] if active and active in manifests else list(manifests.keys())
+
+        for label in keys:
+            claim = _jget(manifests, label)
+            if not isinstance(claim, dict):
+                claim = {}
+
+            ingredients = []
+            for ing in (_jget(claim, "ingredients") or []):
+                ing = _unwrap(ing)
+                if not isinstance(ing, dict):
+                    continue
+                digest = _jget(ing, "digest")
+                hash_alg = None
+                hash_val = digest
+                if digest and ":" in str(digest):
+                    hash_alg, hash_val = str(digest).split(":", 1)
+                entry = {
+                    "title": _jget(ing, "title"),
+                    "hash": hash_val,
+                    "hash_alg": hash_alg,
+                }
+                relationship = _jget(ing, "relationship")
+                if relationship:
+                    entry["relationship"] = relationship
+                ingredients.append(entry)
+
+            generator = None
+            gen_info = _jget(claim, "claim_generator_info")
+            if isinstance(gen_info, list) and gen_info:
+                first = gen_info[0]
+                if isinstance(first, dict):
+                    name = first.get("name")
+                    version = first.get("version")
+                    generator = f"{name}/{version}" if name and version else name
+            if generator is None and isinstance(gen_info, dict):
+                generator = gen_info.get("name")
+
+            signature = None
+            signature_info = _jget(claim, "signature_info")
+            if isinstance(signature_info, dict):
+                signature = {
+                    "issuer": signature_info.get("issuer"),
+                    "common_name": signature_info.get("common_name"),
+                    "cert_serial_number": signature_info.get("cert_serial_number"),
+                    "signature_valid": result["signature_valid"],
+                    "signature_trusted": result["signature_trusted"],
                 }
 
-                if sig and isinstance(sig, dict):
-                    m_info["signature"] = {
-                        "issuer": sig.get("issuer"),
-                        "valid_certificate": sig.get("valid_certificate"),
-                        "valid_signature": sig.get("valid_signature"),
-                    }
+            result["manifests"].append({
+                "label": _jget(claim, "label") or label,
+                "claim_generator": generator,
+                "title": _jget(claim, "title"),
+                "format": _jget(claim, "format"),
+                "signature": signature,
+                "ingredients": ingredients,
+            })
 
-                result["manifests"].append(m_info)
+        if validation_state in ("Valid", "Trusted", "Invalid"):
+            result["state"] = validation_state
 
         print(json.dumps(result))
 
@@ -184,6 +292,9 @@ def main() -> None:
 
     verify_parser = subparsers.add_parser("verify", help="Verify C2PA manifest in a file")
     verify_parser.add_argument("--input", required=True, help="Input media file")
+    verify_parser.add_argument("--trust-anchors",
+                               help="PEM file of root CAs the operator trusts; "
+                                    "without it a valid signature is reported as untrusted")
 
     args = parser.parse_args()
 

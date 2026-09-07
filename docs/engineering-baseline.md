@@ -85,7 +85,7 @@ Deployment: NONE
 | Mistral (AI fallback) | NOT IMPLEMENTED | SUPERSEDED stack — user-mandated fallback (see §6.1) |
 | WhisperX (fallback) | NOT IMPLEMENTED | No speech processing |
 | FFmpeg | NOT IMPLEMENTED | No media processing |
-| C2PA | NOT IMPLEMENTED | No provenance |
+| C2PA | IMPLEMENTED | `c2pa-python==0.37.10` signed embed/verify with honest trust (see W13) |
 | Zod + Pydantic | NOT IMPLEMENTED | No schemas |
 | Vitest + Playwright + pytest | NOT IMPLEMENTED | No tests |
 
@@ -106,7 +106,7 @@ Deployment: NONE
 | W10 | Repair Engine | NOT STARTED |
 | W11 | Re-Verification | NOT STARTED |
 | W12 | Release Passport | NOT STARTED |
-| W13 | Provenance Metadata | COMPLETE + TESTED (contract frozen, migration 0010, `@crex/c2pa`, worker `/provenance/*`; signed C2PA limited — SDK not installable on build machine) |
+| W13 | Provenance Metadata | COMPLETE + TESTED (contract frozen, migration 0010, `@crex/c2pa`, worker `/provenance/*`; real signed embed/verify via `c2pa-python==0.37.10` + openssl EC chain — plain = `Valid`/untrusted, `--trust-anchors` = `Trusted`) |
 | W14 | Audience Context + Learning | IMPLEMENTED + TESTED (`@crex/audience`, migration 0011, worker `/audience/*`) |
 | W15 | End-to-End Integration | NOT STARTED |
 | W16 | Adversarial Benchmark | COMPLETE (29/33 passing; 4 pre-existing failures in timing/semantic drift) |
