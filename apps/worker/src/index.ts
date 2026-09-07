@@ -24,6 +24,7 @@ import { createContractsApi } from "./contracts-routes";
 import { createProvenanceApi } from "./provenance-routes";
 import { createAudienceApi } from "./audience-routes";
 import { createUnderstandingApi } from "./understand-routes";
+import { createVerificationApi } from "./verification-routes";
 import { errorResponse, errorResponseForCode } from "./http";
 import { IncrementalSha256 } from "@crex/media";
 
@@ -371,6 +372,10 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
   const understandingApi = createUnderstandingApi(env);
   const understandingResponse = await understandingApi.handle(request, path);
   if (understandingResponse !== null) return understandingResponse;
+
+  const verificationApi = createVerificationApi(env);
+  const verificationResponse = await verificationApi.handle(request, path);
+  if (verificationResponse !== null) return verificationResponse;
 
   return errorResponseForCode("NOT_FOUND", "route not found");
 }
