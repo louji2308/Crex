@@ -8,6 +8,8 @@ export const DEFAULT_NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1";
 export const DEFAULT_NVIDIA_MODEL = "meta/llama-3.3-70b-instruct";
 export const DEFAULT_MISTRAL_BASE_URL = "https://api.mistral.ai/v1";
 export const DEFAULT_MISTRAL_MODEL = "mistral-large-latest";
+export const DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
+export const DEFAULT_OPENROUTER_MODEL = "meta-llama/llama-3.3-70b-instruct";
 export const DEFAULT_AI_TIMEOUT_MS = 60000;
 export const DEFAULT_AI_MAX_RETRIES = 2;
 export const DEFAULT_AI_RETRY_BASE_DELAY_MS = 1000;
@@ -17,10 +19,13 @@ type AiTask = AiOutput["task"];
 export interface AiEnv {
   NVIDIA_API_KEY?: string;
   MISTRAL_API_KEY?: string;
+  OPENROUTER_API_KEY?: string;
   NVIDIA_BASE_URL?: string;
   NVIDIA_MODEL?: string;
   MISTRAL_BASE_URL?: string;
   MISTRAL_MODEL?: string;
+  OPENROUTER_BASE_URL?: string;
+  OPENROUTER_MODEL?: string;
   AI_TIMEOUT_MS?: string;
   AI_MAX_RETRIES?: string;
   AI_RETRY_BASE_DELAY_MS?: string;
@@ -44,6 +49,9 @@ export function buildProviderOptions(env: AiEnv): ProviderOptions {
     mistralApiKey: env.MISTRAL_API_KEY,
     mistralBaseUrl: env.MISTRAL_BASE_URL || DEFAULT_MISTRAL_BASE_URL,
     mistralModel: env.MISTRAL_MODEL || DEFAULT_MISTRAL_MODEL,
+    openrouterApiKey: env.OPENROUTER_API_KEY,
+    openrouterBaseUrl: env.OPENROUTER_BASE_URL || DEFAULT_OPENROUTER_BASE_URL,
+    openrouterModel: env.OPENROUTER_MODEL || DEFAULT_OPENROUTER_MODEL,
     aiTimeoutMs: positiveInt(env.AI_TIMEOUT_MS, DEFAULT_AI_TIMEOUT_MS),
     aiMaxRetries: nonNegativeInt(env.AI_MAX_RETRIES, DEFAULT_AI_MAX_RETRIES),
     aiRetryBaseDelayMs: positiveInt(env.AI_RETRY_BASE_DELAY_MS, DEFAULT_AI_RETRY_BASE_DELAY_MS),
@@ -53,7 +61,8 @@ export function buildProviderOptions(env: AiEnv): ProviderOptions {
 export function aiConfigured(options: ProviderOptions): boolean {
   return (
     (options.nvidiaApiKey?.trim() ?? "").length > 0 ||
-    (options.mistralApiKey?.trim() ?? "").length > 0
+    (options.mistralApiKey?.trim() ?? "").length > 0 ||
+    (options.openrouterApiKey?.trim() ?? "").length > 0
   );
 }
 
@@ -99,7 +108,7 @@ export async function runGenerationTask(
   }
   return withFallback(
     createProvider("nvidia", options),
-    createProvider("mistral", options),
+    createProvider("openrouter", options),
     request,
     { maxRetries: options.aiMaxRetries, retryBaseDelayMs: options.aiRetryBaseDelayMs },
     targetSchema,

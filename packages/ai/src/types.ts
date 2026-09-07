@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { isoDateTimeSchema, uuidSchema, aiTaskSchema } from "@crex/schemas";
 
-export const providerNameSchema = z.enum(["nvidia", "mistral"]);
+export const providerNameSchema = z.enum(["nvidia", "mistral", "openrouter"]);
 export type ProviderName = z.infer<typeof providerNameSchema>;
 
 export const chatMessageSchema = z.strictObject({
@@ -77,6 +77,9 @@ export const providerOptionsSchema = z.strictObject({
   mistralApiKey: z.string().optional(),
   mistralBaseUrl: z.string().url(),
   mistralModel: z.string().min(1),
+  openrouterApiKey: z.string().optional(),
+  openrouterBaseUrl: z.string().url(),
+  openrouterModel: z.string().min(1),
   aiTimeoutMs: z.number().int().min(1),
   aiMaxRetries: z.number().int().min(0),
   aiRetryBaseDelayMs: z.number().int().min(1),

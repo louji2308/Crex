@@ -2,15 +2,25 @@
 
 ## Current Status
 
-**Phase:** Wave 3 - Source Ingestion Pipeline (IMPLEMENTED + TESTED; final review in progress)
+**Phase:** Wave 3 - Source Ingestion Pipeline (IMPLEMENTED + TESTED) / **Live D1 provisioning COMPLETE**
 **Date:** September 7, 2026
 **Hackathon Deadline:** September 8, 2026 - 8:00 AM ET
 
 **Wave 3 committed and pushed on main:**
 - `1c9b3e0` - source upload sessions (migration 0004), asset lifecycle transitions (SOURCE_STATE_TRANSITIONS), `@crex/media` inspection package.
 - `58666c1` - source upload HTTP API + minimal UI + deterministic workflow ingestion.
+- `e1e7152` - Wave 3 finalization: FixedLengthStream restore (413 on content-length mismatch), runtime matrix A1-A8, Worker B security regression, README/progress alignment. 480 tests.
+- `45c3de2` - W6/W7 Creator Intent & Sponsor Contract persistence (constraints/sponsor_requirements migrated; 482 tests).
 
-**Integration status:** committed Wave 3 baseline on `main` (in sync with `origin/main`). Worker A/B runtime + security pass in flight (uncommitted: `content-length`-mismatch -> 413 guard in `sources-routes.ts`, runtime-matrix `A1-A8`, one 413 regression test) - to be integrated before the final push. Committed baseline: **471 tests green** across 8 packages; `pnpm -r typecheck` green. README.md + progress.md aligned to the committed Wave 3 state (Worker C).
+**Live D1 provisioning + deployment COMPLETE:**
+- Real production D1 `crex`: `database_id = b01526fc-40b4-4024-8616-b2fb6099d94d` in `apps/worker/wrangler.jsonc` (was placeholder).
+- Migrations `0001`-`0006` applied to the remote D1: `npx wrangler d1 migrations apply crex --remote`; 15 app tables + `d1_migrations` verified remotely (APAC/SIN).
+- R2 bucket `crex-media` created (account R2 enabled); bound as `MEDIA`.
+- Worker deployed: https://crex-worker.loujanb2008.workers.dev (bindings DB / MEDIA / SOURCE_TO_RELEASE / AI vars).
+- Live proof through the deployed worker: seed project -> POST /sources 201 -> PUT blob 200 VALID (real R2 + D1 insert) -> poll VALID -> POST /workflows/source-to-release -> source READY ~2s; remote D1 `source_assets` row read back READY (998 B, checksum match).
+- Live AI proof: POST /ai/analyze -> NVIDIA EOL -> OpenRouter fallback -> HTTP 201; `AiOutput` persisted to remote D1 `ai_outputs` (provider openrouter, fallback_used 1).
+
+**Integration status:** Wave 3 + Wave 6/7 committed and pushed (`45c3de2`). **482 tests green**; worker typecheck green. Known pre-existing typecheck error in `apps/web` scaffold (from `45c3de2`) - unrelated to this D1 task.
 
 ---
 
@@ -33,7 +43,7 @@
 ### Known Limitations
 
 - INVALID validation reason is returned in the API response and shown in the UI but NOT persisted on the source row (only status + session error). Documented intentionally.
-- Live D1 deploy + live AI calls remain credential-blocked. Local/miniflare covers the upload path.
+- Live AI calls verified via OpenRouter fallback (NVIDIA primary model `meta/llama-3.3-70b-instruct` is end-of-life -> real calls fall back to OpenRouter; `AiOutput` persisted to remote D1). Mistral remains a defined provider but its configured model is tier-blocked on the available key.
 - Upload routes have no auth or rate limiting yet (prototype scope).
 - Media validation is MP4/ISO-BMFF-focused; other containers are rejected as unsupported.
 
@@ -41,7 +51,7 @@
 
 - Runtime smoke + failure matrix on the local worker (Workers A/B).
 - Security review (filename/object-key handling, R2, size guards) final pass.
-- Live deploy: provision D1 `database_id` + live AI keys + R2 bucket credentials, then `wrangler deploy` (credential-blocked; not blocking local verification).
+- Live AI calls verified via OpenRouter fallback; live D1/R2/Worker deploy DONE (see Current Status). Next: pin an active NVIDIA model or make NVIDIA key provisioned/working; then Wave 4 video understanding.
 - Then Wave 4 planning (video understanding).
 
 ## Repository State
@@ -79,7 +89,7 @@ Implementation Plan: DEFINED
 | Source Upload Pipeline | IMPLEMENTED | `/sources` API + R2 streaming + media validation + UI (8 source-ingestion tests) |
 | Media Inspection | IMPLEMENTED | `@crex/media`: incremental SHA-256 + MP4 probe + validation + fixtures (29 tests) |
 | Source Ingestion Workflow | IMPLEMENTED | `source-to-release` re-verifies R2 size + streamed SHA-256 -> VALID -> PROCESSING -> READY |
-| Deployment | IN PROGRESS | apps/worker bindings (D1/R2/Workflows) configured; live deploy credential-blocked |
+| Deployment | COMPLETE (live D1 migrated + Worker deployed) | Real D1 `crex` migrated 0001-0006; R2 `crex-media`; worker live at crex-worker.loujanb2008.workers.dev; end-to-end D1/R2 verified |
 
 ---
 

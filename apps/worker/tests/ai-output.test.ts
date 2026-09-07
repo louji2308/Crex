@@ -236,11 +236,11 @@ describe("runGenerationTask", () => {
     }) as typeof fetch;
     const options = buildProviderOptions({
       NVIDIA_API_KEY: "nvidia-key",
-      MISTRAL_API_KEY: "mistral-key",
+      OPENROUTER_API_KEY: "openrouter-key",
       AI_MAX_RETRIES: "0",
     });
     const result = await runGenerationTask(request, options, sourceUnderstandingSchema, failingPrimary);
-    expect(result.provider_used).toBe("mistral");
+    expect(result.provider_used).toBe("openrouter");
     expect(result.primary_provider).toBe("nvidia");
     expect(result.fallback_active).toBe(true);
     expect(result.fallback_reason).toBe("upstream_500");

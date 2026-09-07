@@ -4,7 +4,7 @@ import { chatCompletionsWithSchema } from "./client.js";
 import { ProviderAuthFailedError, ProviderNotFoundError } from "./errors.js";
 
 export interface AiProvider {
-  readonly name: "nvidia" | "mistral";
+  readonly name: "nvidia" | "mistral" | "openrouter";
   generate(
     request: ProviderRequest,
     targetSchema?: ZodType<unknown>,
@@ -13,7 +13,7 @@ export interface AiProvider {
 }
 
 interface ProviderConfig {
-  name: "nvidia" | "mistral";
+  name: "nvidia" | "mistral" | "openrouter";
   apiKey: string | undefined;
   baseUrl: string;
   model: string;
@@ -21,7 +21,7 @@ interface ProviderConfig {
 }
 
 function buildProviderConfig(
-  name: "nvidia" | "mistral",
+  name: "nvidia" | "mistral" | "openrouter",
   options: ProviderOptions,
 ): ProviderConfig {
   if (name === "nvidia") {
@@ -30,6 +30,15 @@ function buildProviderConfig(
       apiKey: options.nvidiaApiKey,
       baseUrl: options.nvidiaBaseUrl,
       model: options.nvidiaModel,
+      timeoutMs: options.aiTimeoutMs,
+    };
+  }
+  if (name === "openrouter") {
+    return {
+      name: "openrouter",
+      apiKey: options.openrouterApiKey,
+      baseUrl: options.openrouterBaseUrl,
+      model: options.openrouterModel,
       timeoutMs: options.aiTimeoutMs,
     };
   }
@@ -55,6 +64,12 @@ function createProviderInstance(config: ProviderConfig): AiProvider {
           throw new ProviderAuthFailedError(
             config.name,
             `NVIDIA API key is not configured; cannot generate via ${config.name}`,
+          );
+        }
+        if (config.name === "openrouter") {
+          throw new ProviderAuthFailedError(
+            config.name,
+            `OpenRouter API key is not configured; cannot generate via ${config.name}`,
           );
         }
         throw new ProviderAuthFailedError(
@@ -128,7 +143,7 @@ function createProviderInstance(config: ProviderConfig): AiProvider {
 }
 
 export function createProvider(
-  name: "nvidia" | "mistral",
+  name: "nvidia" | "mistral" | "openrouter",
   options: ProviderOptions,
 ): AiProvider {
   const config = buildProviderConfig(name, options);

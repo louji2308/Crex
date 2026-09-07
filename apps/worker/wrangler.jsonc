@@ -12,6 +12,8 @@
     "NVIDIA_MODEL": "meta/llama-3.3-70b-instruct",
     "MISTRAL_BASE_URL": "https://api.mistral.ai/v1",
     "MISTRAL_MODEL": "mistral-large-latest",
+    "OPENROUTER_BASE_URL": "https://openrouter.ai/api/v1",
+    "OPENROUTER_MODEL": "meta-llama/llama-3.3-70b-instruct",
     "AI_TIMEOUT_MS": "60000",
     "AI_MAX_RETRIES": "2",
     "AI_RETRY_BASE_DELAY_MS": "1000",
@@ -21,7 +23,7 @@
     {
       "binding": "DB",
       "database_name": "crex",
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "b01526fc-40b4-4024-8616-b2fb6099d94d",
       "migrations_dir": "../../packages/db/migrations"
     }
   ],
