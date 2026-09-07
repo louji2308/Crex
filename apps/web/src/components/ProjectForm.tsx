@@ -59,7 +59,7 @@ export function ProjectForm() {
     const { name, value, type } = e.target;
     if (name === "target_platforms") {
       const select = e.target as HTMLSelectElement;
-      const values = Array.from(select.selectedOptions).map((o) => o.value);
+      const values = Array.from(select.selectedOptions).map((o) => o.value) as ProjectFormData["target_platforms"];
       setFormData((prev) => ({ ...prev, target_platforms: values }));
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
@@ -153,7 +153,7 @@ export function ProjectForm() {
             onChange={(e) =>
               setFormData((prev) => ({
                 ...prev,
-                audience: { ...prev.audience, summary: e.target.value },
+                audience: { ...prev.audience, interests: prev.audience?.interests ?? [], summary: e.target.value },
               }))
             }
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
@@ -173,7 +173,11 @@ export function ProjectForm() {
             onChange={(e) =>
               setFormData((prev) => ({
                 ...prev,
-                audience: { ...prev.audience, interests: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) },
+                audience: {
+                  ...prev.audience,
+                  summary: prev.audience?.summary ?? "",
+                  interests: e.target.value.split(",").map((s) => s.trim()).filter(Boolean),
+                },
               }))
             }
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"

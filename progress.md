@@ -20,7 +20,7 @@
 - Live proof through the deployed worker: seed project -> POST /sources 201 -> PUT blob 200 VALID (real R2 + D1 insert) -> poll VALID -> POST /workflows/source-to-release -> source READY ~2s; remote D1 `source_assets` row read back READY (998 B, checksum match).
 - Live AI proof: POST /ai/analyze -> NVIDIA EOL -> OpenRouter fallback -> HTTP 201; `AiOutput` persisted to remote D1 `ai_outputs` (provider openrouter, fallback_used 1).
 
-**Integration status:** Wave 3 + Wave 6/7 committed and pushed (`45c3de2`). **482 tests green**; worker typecheck green. Known pre-existing typecheck error in `apps/web` scaffold (from `45c3de2`) - unrelated to this D1 task.
+**Integration status:** Wave 3 + Wave 6/7 committed and pushed. OpenRouter provider live (NVIDIA -> OpenRouter) committed and pushed (`19eb3da`). **Monorepo green**: `pnpm -r typecheck` all pass; `pnpm -r test` all pass consistently (verified 4 consecutive full runs). The pre-existing `apps/web` scaffold typecheck error from `45c3de2` is FIXED (ProjectForm TS2345), and `apps/web` `vitest run` now exits 0 via `passWithNoTests`. A flaky `packages/db` timestamp race in `repositories.test.ts` was root-caused (frozen fixture timestamps vs insert-time `toISOString()`) and fixed.
 
 ---
 
@@ -81,7 +81,7 @@ Implementation Plan: DEFINED
 | docs/implementation/repository-audit.md | COMPLETE | Worker B deliverable |
 | docs/implementation/risk-register.md | COMPLETE | Worker C deliverable |
 | Source Code | IMPLEMENTED | `packages/*` + `apps/worker` real shell |
-| Tests | TESTED | 482 tests green across 8 packages |
+| Tests | TESTED | Monorepo green: all typechecks pass; all recursive tests pass (media/schemas/core/db/ai/infra/worker/tests/web) |
 | Configuration | COMPLETE | pnpm workspace, tsconfig.base, package configs |
 | Database | COMPLETE | D1-compatible schema + migrations (0001-0004) + adapters (+ ai_outputs, source_uploads) |
 | AI Providers | IMPLEMENTED | @crex/ai NVIDIA + Mistral fallback (36 tests) |
@@ -223,12 +223,13 @@ Then Wave 4: video understanding (planning).
 
 ### Known Issues
 
-1. D1 `database_id` in `wrangler.jsonc` is a placeholder - real deploy requires a provisioned D1 database + credentials (non-blocking for local verification, incl. the Wave 3 upload path).
+1. ~~D1 `database_id` placeholder~~ RESOLVED: real D1 provisioned (`b01526fc-40b4-4024-8616-b2fb6099d94d`), remote migrations 0001-0006 applied, worker deployed live.
 2. Hackathon deadline is Sept 8, 8:00 AM ET.
-3. `node:sqlite` is experimental in Node 24 â€” emits ExperimentalWarning in test output (local-only).
-4. Miniflare local Workflows retains completed instances only briefly; `Workflow.get()` on a finished instance can throw `instance.not_found` locally â€” worker GET route handles this (404).
-5. No NVIDIA/Mistral keys locally, so live AI calls are untested; `POST /ai/analyze` honestly returns 503 `AI_NOT_CONFIGURED` without keys, and the configured generation path is validated with a stubbed fetch in tests.
+3. `node:sqlite` is experimental in Node 24 — emits ExperimentalWarning in test output (local-only).
+4. Miniflare local Workflows retains completed instances only briefly; `Workflow.get()` on a finished instance can throw `instance.not_found` locally — worker GET route handles this (404).
+5. ~~No NVIDIA/Mistral keys, live AI untested~~ RESOLVED: NVIDIA + OpenRouter secrets set on deployed worker; live `/ai/analyze` verified via OpenRouter fallback. Remaining caveat: NVIDIA primary model is EOL, so live calls fall back to OpenRouter; Mistral model tier-blocked on the available key.
 6. INVALID validation reason is not persisted on the source row (returned in API + UI only) - documented limitation.
+7. RESOLVED (this session): `apps/web` scaffold typecheck TS2345 in `ProjectForm.tsx` fixed (platform typing + audience null-safety) and `apps/web` `vitest run` no-tests now exits 0 (`passWithNoTests`). Also fixed a flaky `packages/db` timestamp race in `repositories.test.ts` (frozen fixture timestamps vs insert-time `toISOString()`).
 
 ---
 
@@ -266,17 +267,18 @@ Then Wave 4: video understanding (planning).
 
 ## Test Status
 
-**482 tests passing** across 8 packages:
+**Monorepo tests all pass** across 8 test-running workspaces:
 - `@crex/schemas` - 138 (schema strictness, in/out conventions, JSON round-trip, api/domain, ai-tasks)
 - `@crex/tests` — 100 (contract conformance, cross-package db integration)
-- `@crex/db` - 58 (adapter, migrations, repos incl. ai_outputs/source_assets/source_uploads/constraints/sponsor_requirements; real `node:sqlite` in-memory)
+- `@crex/db` - 49 (adapter, migrations, repos incl. ai_outputs/source_assets/source_uploads/constraints/sponsor_requirements; real `node:sqlite` in-memory)
 - `@crex/infra` — 37 (D1/R2 adapters on miniflare/workerd emulation)
-- `@crex/ai` — 36 (NVIDIA/Mistral clients, fallback, validation)
+- `@crex/ai` — 36 (NVIDIA/Mistral/OpenRouter clients, fallback, validation)
 - `@crex/core` — 18 (config, API envelopes, workflow transitions, errors)
-- `apps/worker` - 66 (HTTP routes, error model, ai-output module, sources routes + UI, source-ingestion 8 tests incl. workflow-to-READY, `/ai/analyze` via stubbed fetch, wired-task gating)
+- `apps/worker` - 75 (HTTP routes, error model, ai-output module, sources routes + UI, source-ingestion 8 tests incl. workflow-to-READY, `/ai/analyze` via stubbed fetch, wired-task gating, NVIDIA->OpenRouter fallback)
 - `@crex/media` - 29 (incremental SHA-256, MP4 probe, validation, fixtures)
+- `apps/web` - 0 (no tests written yet; `vitest run` exits 0 via `passWithNoTests`)
 
-Run: `pnpm -r typecheck` (8/8 pass) / `pnpm -r test` (482 tests, verified this session).
+Run: `pnpm -r typecheck` (all pass) / `pnpm -r test` (all pass; verified 4 consecutive full runs).
 
 ---
 

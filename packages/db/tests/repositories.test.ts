@@ -214,9 +214,15 @@ suite("repositories", () => {
       fileName: upload.fileName,
       fileType: upload.fileType,
     });
-    expect(begun).toEqual(upload);
+    expect(begun.id).toBe(upload.id);
+    expect(begun.projectId).toBe(upload.projectId);
+    expect(begun.objectKey).toBe(upload.objectKey);
+    expect(begun.fileName).toBe(upload.fileName);
+    expect(begun.fileType).toBe(upload.fileType);
     expect(begun.status).toBe("UPLOADING");
     expect(begun.error).toBe("");
+    expect(begun.createdAt).toBe(begun.updatedAt);
+    expect(Number.isNaN(Date.parse(begun.createdAt))).toBe(false);
   });
 
   it("source_uploads: markUploaded persists the UPLOADED status", async () => {
