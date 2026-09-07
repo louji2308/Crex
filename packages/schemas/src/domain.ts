@@ -12,6 +12,7 @@ import {
   platformSchema,
   releaseStatusSchema,
   repairStatusSchema,
+  sourceStateSchema,
   sourceStatusSchema,
   sponsorRequirementTypeSchema,
   verificationStatusSchema,
@@ -35,15 +36,39 @@ export const projectSchema = z.strictObject({
 
 export type Project = z.infer<typeof projectSchema>;
 
+export const sourceVideoStreamSchema = z.strictObject({
+  codec: z.string().min(1),
+  width: z.number().int().positive(),
+  height: z.number().int().positive(),
+});
+
+export type SourceVideoStream = z.infer<typeof sourceVideoStreamSchema>;
+
+export const sourceAudioStreamSchema = z.strictObject({
+  codec: z.string().min(1),
+});
+
+export type SourceAudioStream = z.infer<typeof sourceAudioStreamSchema>;
+
+export const sourceMediaSchema = z.strictObject({
+  container: z.string().min(1),
+  video: sourceVideoStreamSchema.nullable(),
+  audio: sourceAudioStreamSchema.nullable(),
+});
+
+export type SourceMedia = z.infer<typeof sourceMediaSchema>;
+
 export const sourceAssetSchema = z.strictObject({
   id: uuidSchema,
   project_id: uuidSchema,
   object_key: z.string().min(1),
   file_name: z.string().min(1),
   file_type: z.string().min(1),
-  size_bytes: z.number().int().nonnegative(),
-  duration_seconds: z.number().nonnegative(),
-  checksum: z.string().min(1),
+  size_bytes: z.number().int().nonnegative().optional(),
+  duration_seconds: z.number().nonnegative().optional(),
+  checksum: z.string().min(1).optional(),
+  status: sourceStateSchema,
+  media: sourceMediaSchema.optional(),
   transcription_status: sourceStatusSchema,
   analysis_status: sourceStatusSchema,
   created_at: isoDateTimeSchema,

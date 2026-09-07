@@ -30,6 +30,17 @@ export const EVIDENCE_TYPE = ["TRANSCRIPT", "NUMERICAL", "SOURCE_VIDEO"] as cons
 
 export const SOURCE_STATUS = ["PENDING", "PROCESSING", "COMPLETED", "FAILED"] as const;
 
+export const SOURCE_STATE = [
+  "UPLOADING",
+  "UPLOADED",
+  "VALIDATING",
+  "VALID",
+  "INVALID",
+  "PROCESSING",
+  "READY",
+  "FAILED",
+] as const;
+
 export const ASSET_TYPE = [
   "YOUTUBE_TITLE",
   "YOUTUBE_DESCRIPTION",
@@ -101,6 +112,8 @@ export const claimTypeSchema = z.enum(CLAIM_TYPE);
 export const evidenceTypeSchema = z.enum(EVIDENCE_TYPE);
 
 export const sourceStatusSchema = z.enum(SOURCE_STATUS);
+
+export const sourceStateSchema = z.enum(SOURCE_STATE);
 
 export const assetTypeSchema = z.enum(ASSET_TYPE);
 

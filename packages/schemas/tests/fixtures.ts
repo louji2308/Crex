@@ -50,6 +50,12 @@ export function validSourceAsset(): SourceAsset {
     size_bytes: 52428800,
     duration_seconds: 720,
     checksum: "a".repeat(64),
+    status: "READY",
+    media: {
+      container: "mp4",
+      video: { codec: "h264", width: 1920, height: 1080 },
+      audio: { codec: "aac" },
+    },
     transcription_status: "COMPLETED",
     analysis_status: "COMPLETED",
     created_at: nowIso(),

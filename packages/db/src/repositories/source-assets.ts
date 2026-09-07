@@ -4,7 +4,7 @@ import type { SqlDb } from "../sqlite";
 import { getRow, insertRow, listRows } from "./shared";
 
 const TABLE = "source_assets";
-const JSON_FIELDS = [] as const;
+const JSON_FIELDS = ["media"] as const;
 
 export class SourceAssetRepository {
   private readonly db: SqlDb;

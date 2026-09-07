@@ -14,6 +14,7 @@ import {
   verificationFindingSchema,
   verificationRunSchema,
   workflowStateSchema,
+  type SourceAsset,
 } from "../src/index";
 import {
   validClaim,
@@ -64,15 +65,32 @@ describe("sourceAssetSchema", () => {
     const parsed = sourceAssetSchema.parse(valid());
     expect(parsed.transcription_status).toBe("COMPLETED");
     expect(parsed.size_bytes).toBe(52428800);
+    expect(parsed.status).toBe("READY");
+    expect(parsed.media?.video).toEqual({ codec: "h264", width: 1920, height: 1080 });
   });
 
   it.each([
     ["an unknown key", { ...valid(), stray: true }],
-    ["a missing required field", without(valid(), "checksum")],
+    ["a missing required field", without(valid(), "status")],
+    ["an invalid status value", { ...valid(), status: "NOPE" }],
     ["an invalid transcription status", { ...valid(), transcription_status: "NOPE" }],
     ["a wrong-typed field", { ...valid(), size_bytes: "52428800" }],
   ])("rejects %s", (_label, input) => {
     expect(() => sourceAssetSchema.parse(input)).toThrow();
+  });
+
+  it("accepts an upload in progress before measurement fields are known", () => {
+    const inFlight = without(valid(), "size_bytes");
+    delete (inFlight as Partial<SourceAsset>).duration_seconds;
+    delete (inFlight as Partial<SourceAsset>).checksum;
+    (inFlight as Partial<SourceAsset>).status = "UPLOADING";
+    expect(() => sourceAssetSchema.parse(inFlight)).not.toThrow();
+  });
+
+  it("rejects media metadata that is not derived from a real probe", () => {
+    const valid = () => validSourceAsset();
+    const badMedia = { container: "mp4", video: { codec: "h264", width: 0, height: 1080 }, audio: null };
+    expect(() => sourceAssetSchema.parse({ ...valid(), status: "VALID", media: badMedia })).toThrow();
   });
 
   it("survives a JSON round-trip", () => {

@@ -52,6 +52,7 @@ export function makeSourceAsset(overrides: Partial<SourceAsset> = {}): SourceAss
     size_bytes: 104857600,
     duration_seconds: 7200,
     checksum: "sha256:0123456789abcdef",
+    status: "READY",
     transcription_status: "PENDING",
     analysis_status: "PENDING",
     created_at: now,

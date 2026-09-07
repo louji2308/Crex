@@ -78,6 +78,7 @@ export function sourceAssetFixture(
     size_bytes: 12_000_000,
     duration_seconds: 720,
     checksum: uniqueLabel("sha256"),
+    status: "READY",
     transcription_status: "PENDING",
     analysis_status: "PENDING",
     created_at: nowIso(),

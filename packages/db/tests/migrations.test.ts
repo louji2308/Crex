@@ -116,10 +116,36 @@ describe("migrate", () => {
       "idx_verification_findings_component_id",
       "idx_workflow_state_project_id",
       "idx_ai_outputs_project",
+      "idx_source_assets_status",
     ];
     for (const index of expectedIndexes) {
       expect(await indexExists(db, index), `expected index ${index} to exist`).toBe(true);
     }
+  });
+
+  it("does not split statements on semicolons inside comments or quoted strings", async () => {
+    const db = openMemoryDb();
+    const dir = makeTempMigrationsDir({
+      "0001_semicolons.sql": [
+        "-- comment with a semicolon; and another;",
+        "CREATE TABLE IF NOT EXISTS comment_probe (id TEXT PRIMARY KEY, note TEXT);",
+        "-- line comment after statement; with semis;",
+        "INSERT INTO comment_probe (id) VALUES ('semi;in-string');",
+        "/* block comment; with a semicolon; */",
+        "CREATE INDEX IF NOT EXISTS idx_comment_probe_note ON comment_probe(note);",
+      ].join("\n"),
+    });
+
+    const result = await migrate(db, { migrationsDir: dir });
+    expect(result.applied).toEqual(["0001_semicolons.sql"]);
+    expect(await tableExists(db, "comment_probe")).toBe(true);
+
+    const row = (await db.prepare("SELECT id FROM comment_probe WHERE id = ?").get("semi;in-string")) as
+      | { id: string }
+      | undefined;
+    expect(row).toMatchObject({ id: "semi;in-string" });
+
+    rmSync(dir, { recursive: true, force: true });
   });
 
   it("applies migrations in filename order from a synthetic directory", async () => {
