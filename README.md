@@ -4,12 +4,12 @@
 
 ## Current Status
 
-**Phase:** Wave 3 — Source Ingestion Pipeline (COMPLETE + VERIFIED LIVE) + **Live D1 provisioning COMPLETE**
+**Phase:** Wave 3 — Source Ingestion Pipeline (COMPLETE + VERIFIED LIVE) + **Wave 13 Provenance Foundation (COMPLETE + TESTED)** + **Wave 14 Audience Context (IMPLEMENTED + TESTED)** + Live D1 provisioning COMPLETE
 **Date:** September 7, 2026
 
-The pnpm monorepo foundation is complete: **17 frozen contract schemas** (`@crex/schemas`), a D1-compatible SQLite data layer (`@crex/db`), core foundation utilities (`@crex/core`), NVIDIA→OpenRouter AI adapter with fallback (`@crex/ai`), D1/R2 infrastructure adapters (`@crex/infra`), a media inspection package (`@crex/media`), and a real Cloudflare Worker (**`apps/worker`**) with D1/R2/Workflows bindings.
+The pnpm monorepo foundation is complete: **18 frozen contract schemas** (`@crex/schemas`), a D1-compatible SQLite data layer (`@crex/db`), core foundation utilities (`@crex/core`), NVIDIA→OpenRouter AI adapter with fallback (`@crex/ai`), D1/R2 infrastructure adapters (`@crex/infra`), a media inspection package (`@crex/media`), a provenance package (`@crex/c2pa`), an audience package (`@crex/audience`), and a real Cloudflare Worker (**`apps/worker`**) with D1/R2/Workflows bindings.
 
-Wave 3 implements the **source ingestion pipeline**: upload → R2 → D1 → media validation → `SourceAsset` → workflow ingestion → `READY`, plus a minimal upload UI. Wave 2's infra/AI groundwork remains in place: `GET /health`, and `POST /ai/analyze` running the `SEMANTIC_UNDERSTANDING` task through NVIDIA→OpenRouter with schema validation and `AiOutput` persistence. The live D1 database and R2 are provisioned and the Worker is **deployed live**; **482 tests passing** across 8 packages, worker typecheck green.
+Wave 3 implements the **source ingestion pipeline**: upload → R2 → D1 → media validation → `SourceAsset` → workflow ingestion → `READY`, plus a minimal upload UI. Wave 2's infra/AI groundwork remains in place: `GET /health`, and `POST /ai/analyze` running the `SEMANTIC_UNDERSTANDING` task through NVIDIA→OpenRouter with schema validation and `AiOutput` persistence. Wave 13 adds the **provenance foundation**: a frozen `ProvenanceRecord` contract, provenance D1 table + repository, C2PA manifest build/verify logic, and worker `/provenance/*` routes that bind real R2 asset bytes to SHA-256 hashes (honest `UNSIGNED` state — real C2PA signing requires installing the `c2pa-python` SDK). The live D1 database and R2 are provisioned and the Worker is **deployed live**; **576 tests passing** across 10 workspaces, all typechecks green.
 
 ---
 
@@ -70,12 +70,14 @@ Crex/
 ├── apps/
 │   └── worker/               # Cloudflare Worker: Workflows + D1 + R2 + HTTP API
 ├── packages/
-│   ├── schemas/              # Frozen contract schemas (17), types, registry
+│   ├── schemas/              # Frozen contract schemas (18), types, registry
 │   ├── db/                   # D1-compatible SQLite: migrations + data-access
 │   ├── core/                 # Config/env loader, ApiError, logger, workflow state
 │   ├── ai/                   # NVIDIA (primary) + OpenRouter (fallback); Mistral legacy
 │   ├── infra/                # D1/R2 adapters over the @crex/db seam
 │   ├── media/                # MP4 probe, media validation, incremental SHA-256, fixtures
+│   ├── c2pa/                 # C2PA provenance: manifest build/verify + Python CLI gateway
+│   ├── audience/             # Deterministic audience aggregation/insights/recommendations
 │   └── tests/                # Fixtures, contract conformance, db integration
 ├── docs/
 │   ├── engineering-baseline.md
@@ -87,9 +89,65 @@ Crex/
 
 ## Frozen Contracts
 
-`Project, SourceAsset, TranscriptSegment, Claim, Evidence, GeneratedAsset, GeneratedComponent, VerificationRun, VerificationFinding, WorkflowState, Constraint, SponsorRequirement, RepairAction, ReleasePassport, ApiResponse, AiOutput, ApiError`.
+`Project, SourceAsset, TranscriptSegment, Claim, Evidence, GeneratedAsset, GeneratedComponent, VerificationRun, VerificationFinding, WorkflowState, Constraint, SponsorRequirement, RepairAction, ReleasePassport, ProvenanceRecord, ApiResponse, AiOutput, ApiError`.
 
 Deferred (registry-documented, no code yet): `PerformanceObservation`, `LearningRecord` (later wave).
+
+**Wave 14 audience contracts** (implemented via deep imports in `packages/schemas/src/audience.ts`): `AudienceProfile`, `AudienceObservation`, `AudienceInsight`, `AudienceRecommendation`, `AudienceContext`.
+
+---
+
+## Provenance (Wave 13)
+
+Wave 13 lays the provenance foundation: an internal `ProvenanceRecord` contract plus C2PA manifest build/verify tooling, wired into the worker API. Internal provenance records and external C2PA media provenance stay separate concepts (per `Architecture & Techstack.md` §16–17).
+
+### Data model (`Packages/schemas` + `packages/db`)
+
+- Frozen `ProvenanceRecord`: `project_id`, `asset_id`, `asset_sha256` (hex, `sha256HexSchema`), `signing_status` (`UNSIGNED`/`SIGNED`/`FAILED`), `verification_status` (`VALID`/`INVALID`/`UNSIGNED`/`UNTRUSTED`/`MISSING`), nullable `manifest`/`signer`/`verification_details` JSON, timestamps.
+- Migration `0010_provenance.sql`: `provenance_records` table (unique asset, FK → `projects`, indexes on `asset_id`/`project_id`, CHECK constraints).
+- `ProvenanceRepository` (`packages/db`): provision, fetch by id/asset, latest-by-asset, set manifest/signing/verification status, list by project.
+
+### C2PA tooling (`@crex/c2pa`)
+
+TypeScript, fully unit-tested (22 tests):
+
+- `buildManifest` — constructs a C2PA manifest with a `c2pa.crex_provenance` assertion (asset id + sha256 + linked record), plus `c2pa.asset_id`, `dc.title`, `dc.created`; optional ingredients (content → source mapping).
+- `verifyManifest` — deterministic validation of an extracted manifest: `VALID` (hash + record match), `INVALID` (hash mismatch / malformed), `UNSIGNED` (no Crex assertion), `UNTRUSTED` (unknown signer), `MISSING` (no manifest).
+- `invokePythonCli` — gateway to `python/cli.py` (`embed`/`verify`) for real signed embedding.
+
+### Worker API (`apps/worker`)
+
+```text
+POST /provenance/records        provision a record; hashes the real R2 asset bytes (sha256), persists UNSIGNED
+GET  /provenance/records/:id    fetch a record
+GET  /provenance/verify?assetId=[&recordId=]   re-hash R2 bytes → C2PA verify → VALID/INVALID/UNSIGNED/UNTRUSTED/MISSING
+```
+
+The verify path always re-reads and re-hashes the actual R2 object — it never trusts stored hashes. Every response is an `ApiResponse` envelope; hashing failures surface as explicit errors (never fake success).
+
+### Honest C2PA limitation
+
+Real signed embedding (`c2pa-python`) is **not** available on this build machine: `pip install c2pa` fails because `py3exiv2` requires MSVC 14.0 Build Tools. Until the SDK installs in a given environment, records are created with `signing_status: UNSIGNED` and verification returns `UNSIGNED` — the system never pretends signing succeeded. The TS manifest build/verify logic is fully unit-tested, and the Python CLI + integration tests gate the signed path explicitly (skip + printed reason).
+
+---
+
+## Audience Context + Learning (Wave 14)
+
+Builds a reusable audience-context and learning subsystem on top of the project brief.
+
+```text
+POST /audience/profiles         create a named audience profile (facts tagged CREATOR_DECLARED/OBSERVED/INFERRED)
+GET  /audience/profiles?projectId=
+GET  /audience/profiles/:id
+POST /audience/observations     record an observation (idempotent via project+dedupeKey)
+GET  /audience/observations?projectId=
+POST /audience/compute          deterministic aggregate → insights → recommendations, persisted
+GET  /audience/context?projectId=   assembled primary/complementary profiles + insights + recommendations
+```
+
+- **Deterministic core** lives in `@crex/audience` (no AI): `aggregateProfile` picks the highest-priority/confidence observation per metric; `computeInsights` emits `AGGREGATED_PROFILE` / `DIVERGENCE` / `GAP` / `DATA_INSUFFICIENT`; `generateRecommendations` emits `ACKNOWLEDGE_LIMITS` / `SPLIT` / `EXPAND`. AI interpretation is intentionally kept separate (deterministic-first rule).
+- **Storage:** migration `0011_audience.sql` + four repositories in `packages/db`.
+- `POST /audience/compute` recomputes and persists a fresh profile, insights, and recommendations for a project (deterministic and repeatable).
 
 ---
 
@@ -182,6 +240,15 @@ Worker `vars` (defaults in `apps/worker/wrangler.jsonc`) cover AI provider confi
 | GET | `/sources/:uploadId` | Poll upload/source status |
 | GET | `/sources?projectId=` | List sources for a project |
 | GET | `/sources/ui` | Minimal upload UI (XHR progress + 800 ms polling) |
+| POST | `/provenance/records` | Provision a provenance record from real R2 bytes (sha256, `UNSIGNED`) |
+| GET | `/provenance/records/:id` | Fetch a provenance record |
+| GET | `/provenance/verify` | Re-hash R2 asset bytes + C2PA verify → `VALID`/`INVALID`/`UNSIGNED`/`UNTRUSTED`/`MISSING` |
+| POST | `/audience/profiles` | Create a named audience profile |
+| GET | `/audience/profiles?projectId=` | List profiles |
+| POST | `/audience/observations` | Record an observation (idempotent) |
+| GET | `/audience/observations?projectId=` | List observations |
+| POST | `/audience/compute` | Deterministic aggregate → insights → recommendations |
+| GET | `/audience/context?projectId=` | Assembled audience context |
 
 Without an AI key, `/ai/analyze` returns `503 AI_NOT_CONFIGURED` (honest gating); the configured path is covered end-to-end in tests with a stubbed fetch.
 
@@ -190,9 +257,11 @@ Without an AI key, `/ai/analyze` returns `503 AI_NOT_CONFIGURED` (honest gating)
 ## Testing
 
 ```bash
-pnpm -r typecheck   # strict TS across all packages (8/8 green)
-pnpm -r test        # Vitest across all packages (482 tests)
+pnpm -r typecheck   # strict TS across all packages (11/11 green)
+pnpm -r test        # Vitest across all workspaces (576 tests)
 ```
+
+Coverage by workspace: `@crex/schemas` 154, `@crex/tests` 106, `@crex/db` 66, `@crex/infra` 37, `@crex/ai` 36, `@crex/media` 29, `@crex/c2pa` 22, `@crex/core` 18, `@crex/audience` 12, `apps/worker` 96.
 
 ---
 

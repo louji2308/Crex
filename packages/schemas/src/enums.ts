@@ -99,6 +99,21 @@ export const REPAIR_STATUS = ["PROPOSED", "APPLIED", "REJECTED"] as const;
 
 export const RELEASE_STATUS = ["DRAFT", "READY", "BLOCKED"] as const;
 
+export const PROVENANCE_SIGNING_STATUS = [
+  "UNSIGNED",
+  "SIGNING",
+  "SIGNED",
+  "FAILED",
+] as const;
+
+export const PROVENANCE_VERIFICATION_STATUS = [
+  "VALID",
+  "INVALID",
+  "UNSIGNED",
+  "UNTRUSTED",
+  "MISSING",
+] as const;
+
 export const verificationStatusSchema = z.enum(VERIFICATION_STATUS);
 
 export const assetStatusSchema = z.enum(ASSET_STATUS);
@@ -132,3 +147,7 @@ export const sponsorRequirementTypeSchema = z.enum(SPONSOR_REQUIREMENT_TYPE);
 export const repairStatusSchema = z.enum(REPAIR_STATUS);
 
 export const releaseStatusSchema = z.enum(RELEASE_STATUS);
+
+export const provenanceSigningStatusSchema = z.enum(PROVENANCE_SIGNING_STATUS);
+
+export const provenanceVerificationStatusSchema = z.enum(PROVENANCE_VERIFICATION_STATUS);

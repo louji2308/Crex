@@ -13,10 +13,12 @@
   },
   "dependencies": {
     "@crex/ai": "workspace:*",
+    "@crex/audience": "workspace:*",
     "@crex/core": "workspace:*",
     "@crex/db": "workspace:*",
     "@crex/infra": "workspace:*",
     "@crex/media": "workspace:*",
+    "@crex/c2pa": "workspace:*",
     "@crex/schemas": "workspace:*",
     "zod": "^3.23.8"
   },

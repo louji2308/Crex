@@ -57,6 +57,10 @@ export const isoDateTimeSchema = z
     message: "expected a valid ISO 8601 datetime",
   });
 
+export const sha256HexSchema = z
+  .string()
+  .regex(/^[0-9a-f]{64}$/i, { message: "expected a lowercase SHA-256 hex digest" });
+
 export const scoreSchema = z.number().int().min(0).max(100);
 
 export const sourceRangeSchema = z

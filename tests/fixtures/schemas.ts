@@ -5,6 +5,7 @@ import {
   projectSchema,
   releasePassportSchema,
   repairActionSchema,
+  provenanceRecordSchema,
   sourceAssetSchema,
   sponsorRequirementSchema,
   transcriptSegmentSchema,
@@ -39,6 +40,7 @@ import {
   type ApiResponse,
   type ApiError,
   type AiOutput,
+  type ProvenanceRecord,
 } from "@crex/schemas";
 
 const genericPayload = z.record(z.string(), z.unknown());
@@ -345,6 +347,23 @@ export function releasePassportFixture(
     created_at: stamp,
   };
   return releasePassportSchema.parse({ ...base, ...overrides });
+}
+
+export function provenanceRecordFixture(
+  overrides: Partial<ProvenanceRecord> = {},
+): ProvenanceRecord {
+  const stamp = nowIso();
+  const base: ProvenanceRecord = {
+    id: createId(),
+    project_id: overrides.project_id ?? createId(),
+    asset_id: overrides.asset_id ?? createId(),
+    asset_sha256: "a".repeat(64),
+    signing_status: "UNSIGNED",
+    verification_status: "UNSIGNED",
+    created_at: stamp,
+    updated_at: stamp,
+  };
+  return provenanceRecordSchema.parse({ ...base, ...overrides });
 }
 
 export { toIso };

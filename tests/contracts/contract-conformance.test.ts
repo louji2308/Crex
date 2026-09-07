@@ -11,6 +11,7 @@ import {
   generatedAssetSchema,
   generatedComponentSchema,
   projectSchema,
+  provenanceRecordSchema,
   releasePassportSchema,
   repairActionSchema,
   sourceAssetSchema,
@@ -38,6 +39,7 @@ import {
   apiOkFixture,
   apiErrFixture,
   aiOutputFixture,
+  provenanceRecordFixture,
 } from "../fixtures/schemas.js";
 
 const FROZEN_NAMES = [
@@ -55,6 +57,7 @@ const FROZEN_NAMES = [
   "SponsorRequirement",
   "RepairAction",
   "ReleasePassport",
+  "ProvenanceRecord",
   "APIResponse",
   "AiOutput",
   "ApiError",
@@ -204,6 +207,17 @@ const CASES: ContractCase[] = [
     },
   },
   {
+    name: "ProvenanceRecord",
+    schema: provenanceRecordSchema,
+    fixture: () => provenanceRecordFixture(),
+    requiredKey: "id",
+    enumField: {
+      field: "verification_status",
+      valid: "VALID",
+      invalid: "BANANA",
+    },
+  },
+  {
     name: "APIResponse",
     schema: apiResponseSchemaShape(),
     fixture: () => apiOkFixture({ hello: "world" }),
@@ -278,8 +292,8 @@ function asShape(schema: z.ZodType): SchemaShape {
 }
 
 describe("frozen contract registry", () => {
-  it("freezes exactly the 17 Wave 1 + Wave 2 contracts", () => {
-    expect(FROZEN_CONTRACTS).toHaveLength(17);
+  it("freezes exactly the 18 Wave 1 + Wave 2 + Wave 13 contracts", () => {
+    expect(FROZEN_CONTRACTS).toHaveLength(18);
     expect([...FROZEN_CONTRACTS].sort()).toEqual([...FROZEN_NAMES].sort());
   });
 

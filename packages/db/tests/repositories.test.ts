@@ -586,6 +586,165 @@ suite("repositories", () => {
     expect(await repository.get("missing")).toBeUndefined();
   });
 
+  it("audience_profiles: insert, get, listByProject, upsert", async () => {
+    const { ProjectRepository, AudienceProfileRepository } = reposOf();
+    const fx = fixturesOf();
+    await new ProjectRepository(db).insert(fx.makeProject());
+    const repository = new AudienceProfileRepository(db);
+    const now = fx.isoNow();
+
+    const input = {
+      id: fx.AUDIENCE_PROFILE_ID,
+      project_id: fx.PROJECT_ID,
+      name: "Primary",
+      facts: {
+        AGE_RANGE: { value: "25-40", source: "OBSERVED" as const, confidence: 0.8 },
+        KNOWLEDGE_LEVEL: { value: "expert", source: "CREATOR_DECLARED" as const },
+      },
+      created_at: now,
+      updated_at: now,
+    };
+
+    const inserted = await repository.insert(input);
+    expect(inserted.id).toBe(fx.AUDIENCE_PROFILE_ID);
+    expect(inserted.facts.AGE_RANGE?.value).toBe("25-40");
+
+    const got = await repository.get(fx.AUDIENCE_PROFILE_ID);
+    expect(got).toEqual(inserted);
+    expect(got?.facts.KNOWLEDGE_LEVEL?.source).toBe("CREATOR_DECLARED");
+
+    expect(await repository.listByProject(fx.PROJECT_ID)).toHaveLength(1);
+    expect(await repository.get("missing")).toBeUndefined();
+
+    const upserted = await repository.upsert({
+      ...input,
+      name: "Renamed",
+      facts: { ...input.facts },
+    });
+    expect(upserted.name).toBe("Renamed");
+    const afterUpsert = await repository.get(fx.AUDIENCE_PROFILE_ID);
+    expect(afterUpsert?.name).toBe("Renamed");
+  });
+
+  it("audience_profiles: upsert inserts when missing", async () => {
+    const { ProjectRepository, AudienceProfileRepository } = reposOf();
+    const fx = fixturesOf();
+    await new ProjectRepository(db).insert(fx.makeProject());
+    const repository = new AudienceProfileRepository(db);
+    const now = fx.isoNow();
+
+    const input = {
+      id: fx.AUDIENCE_PROFILE_ID,
+      project_id: fx.PROJECT_ID,
+      name: "MISSING",
+      facts: {},
+      created_at: now,
+      updated_at: now,
+    };
+
+    await repository.upsert(input);
+    const got = await repository.get(fx.AUDIENCE_PROFILE_ID);
+    expect(got?.name).toBe("MISSING");
+  });
+
+  it("audience_observations: insert, upsert dedupes by project+dedupe_key, listByProject", async () => {
+    const { ProjectRepository, AudienceObservationRepository } = reposOf();
+    const fx = fixturesOf();
+    await new ProjectRepository(db).insert(fx.makeProject());
+    const repository = new AudienceObservationRepository(db);
+    const now = fx.isoNow();
+
+    const obs = {
+      id: fx.AUDIENCE_OBSERVATION_ID,
+      project_id: fx.PROJECT_ID,
+      metric: "AGE_RANGE" as const,
+      value: "25-40",
+      confidence: 0.8,
+      source: "OBSERVED" as const,
+      dedupe_key: "age-range-2024",
+      created_at: now,
+    };
+
+    const inserted = await repository.insert(obs);
+    expect(inserted.id).toBe(fx.AUDIENCE_OBSERVATION_ID);
+
+    const duplicate = await repository.upsert({
+      ...obs,
+      id: "b0000000-0000-4000-8000-000000000020",
+      value: "18-25",
+    });
+    expect(duplicate.id).toBe(fx.AUDIENCE_OBSERVATION_ID);
+    expect(duplicate.value).toBe("25-40");
+
+    expect(await repository.listByProject(fx.PROJECT_ID)).toHaveLength(1);
+    expect(await repository.listByMetric(fx.PROJECT_ID, "AGE_RANGE")).toHaveLength(1);
+    expect(await repository.listByMetric(fx.PROJECT_ID, "INTERESTS")).toHaveLength(0);
+  });
+
+  it("audience_insights: insert, get, listByProject, deleteByProject", async () => {
+    const { ProjectRepository, AudienceInsightRepository } = reposOf();
+    const fx = fixturesOf();
+    await new ProjectRepository(db).insert(fx.makeProject());
+    const repository = new AudienceInsightRepository(db);
+    const now = fx.isoNow();
+
+    const insight = {
+      id: fx.AUDIENCE_INSIGHT_ID,
+      project_id: fx.PROJECT_ID,
+      type: "AGGREGATED_PROFILE" as const,
+      summary: "Age range consistent",
+      evidence: [fx.AUDIENCE_OBSERVATION_ID],
+      sample_size: 5,
+      confidence: 0.8,
+      created_at: now,
+    };
+
+    const inserted = await repository.insert(insight);
+    expect(inserted.id).toBe(fx.AUDIENCE_INSIGHT_ID);
+    expect(inserted.evidence).toEqual([fx.AUDIENCE_OBSERVATION_ID]);
+
+    const got = await repository.get(fx.AUDIENCE_INSIGHT_ID);
+    expect(got).toEqual(inserted);
+
+    expect(await repository.listByProject(fx.PROJECT_ID)).toHaveLength(1);
+
+    await repository.deleteByProject(fx.PROJECT_ID);
+    expect(await repository.listByProject(fx.PROJECT_ID)).toHaveLength(0);
+  });
+
+  it("audience_recommendations: insert, get, listByProject, deleteByProject", async () => {
+    const { ProjectRepository, AudienceRecommendationRepository } = reposOf();
+    const fx = fixturesOf();
+    await new ProjectRepository(db).insert(fx.makeProject());
+    const repository = new AudienceRecommendationRepository(db);
+    const now = fx.isoNow();
+
+    const rec = {
+      id: fx.AUDIENCE_RECOMMENDATION_ID,
+      project_id: fx.PROJECT_ID,
+      type: "EXPAND" as const,
+      base: "DETERMINISTIC" as const,
+      statement: "Expand reach",
+      rationale: "Well-defined profile",
+      evidence: [fx.AUDIENCE_INSIGHT_ID],
+      limitations: ["Past obs only"],
+      created_at: now,
+    };
+
+    const inserted = await repository.insert(rec);
+    expect(inserted.id).toBe(fx.AUDIENCE_RECOMMENDATION_ID);
+    expect(inserted.evidence).toEqual([fx.AUDIENCE_INSIGHT_ID]);
+    expect(inserted.limitations).toEqual(["Past obs only"]);
+
+    const got = await repository.get(fx.AUDIENCE_RECOMMENDATION_ID);
+    expect(got).toEqual(inserted);
+
+    expect(await repository.listByProject(fx.PROJECT_ID)).toHaveLength(1);
+
+    await repository.deleteByProject(fx.PROJECT_ID);
+    expect(await repository.listByProject(fx.PROJECT_ID)).toHaveLength(0);
+  });
+
   it("rejects an insert that violates a foreign key", async () => {
     const { SourceAssetRepository } = reposOf();
     const fx = fixturesOf();

@@ -6,6 +6,7 @@ import type {
   GeneratedAsset,
   GeneratedComponent,
   Project,
+  ProvenanceRecord,
   SourceAsset,
   SponsorRequirement,
   TranscriptSegment,
@@ -33,6 +34,11 @@ export const AI_OUTPUT_ID = "a0000000-0000-4000-8000-000000000011";
 export const UPLOAD_ID = "a0000000-0000-4000-8000-000000000012";
 export const CONSTRAINT_ID = "a0000000-0000-4000-8000-000000000013";
 export const SPONSOR_REQUIREMENT_ID = "a0000000-0000-4000-8000-000000000014";
+export const PROVENANCE_ID = "a0000000-0000-4000-8000-000000000015";
+export const AUDIENCE_PROFILE_ID = "a0000000-0000-4000-8000-000000000016";
+export const AUDIENCE_OBSERVATION_ID = "a0000000-0000-4000-8000-000000000017";
+export const AUDIENCE_INSIGHT_ID = "a0000000-0000-4000-8000-000000000018";
+export const AUDIENCE_RECOMMENDATION_ID = "a0000000-0000-4000-8000-000000000019";
 
 export function makeProject(overrides: Partial<Project> = {}): Project {
   const now = isoNow();
@@ -255,6 +261,21 @@ export function makeWorkflowState(overrides: Partial<WorkflowState> = {}): Workf
     workflow_name: "analysis",
     phase: "RUNNING",
     stage: "EVIDENCE_GRAPH",
+    created_at: now,
+    updated_at: now,
+    ...overrides,
+  };
+}
+
+export function makeProvenanceRecord(overrides: Partial<ProvenanceRecord> = {}): ProvenanceRecord {
+  const now = isoNow();
+  return {
+    id: PROVENANCE_ID,
+    project_id: PROJECT_ID,
+    asset_id: ASSET_ID,
+    asset_sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    signing_status: "UNSIGNED",
+    verification_status: "UNSIGNED",
     created_at: now,
     updated_at: now,
     ...overrides,

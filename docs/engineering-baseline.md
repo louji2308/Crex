@@ -94,22 +94,22 @@ Deployment: NONE
 | Wave | Name | Status |
 |------|------|--------|
 | W0 | Repository Discovery + Contract Freeze | COMPLETE |
-| W1 | Shared Contracts + Project Foundation | NOT STARTED |
-| W2 | Real Infrastructure Foundation | NOT STARTED |
-| W3 | Source Ingestion Pipeline | NOT STARTED |
+| W1 | Shared Contracts + Project Foundation | COMPLETE (`c305fe4`; 13 contracts + ApiError) |
+| W2 | Real Infrastructure Foundation | COMPLETE (infra + AI + worker shell; D1/R2 provisioned, worker deployed live) |
+| W3 | Source Ingestion Pipeline | COMPLETE + VERIFIED LIVE (upload → R2 → D1 → media validation → workflow READY) |
 | W4 | Video Understanding | NOT STARTED |
 | W5 | Evidence Graph | NOT STARTED |
-| W6 | Creator Intent Contract | NOT STARTED |
-| W7 | Sponsor Contract | NOT STARTED |
+| W6 | Creator Intent Contract | COMPLETE (`Constraint`, migration 0005, repository, tests) |
+| W7 | Sponsor Contract | COMPLETE (`SponsorRequirement`, migration 0006, repository, tests) |
 | W8 | Content Generation Engine | NOT STARTED |
 | W9 | Independent Verification Engine | NOT STARTED |
 | W10 | Repair Engine | NOT STARTED |
 | W11 | Re-Verification | NOT STARTED |
 | W12 | Release Passport | NOT STARTED |
-| W13 | Provenance Metadata | NOT STARTED |
-| W14 | Audience Context + Learning | NOT STARTED |
+| W13 | Provenance Metadata | COMPLETE + TESTED (contract frozen, migration 0010, `@crex/c2pa`, worker `/provenance/*`; signed C2PA limited — SDK not installable on build machine) |
+| W14 | Audience Context + Learning | IMPLEMENTED + TESTED (`@crex/audience`, migration 0011, worker `/audience/*`) |
 | W15 | End-to-End Integration | NOT STARTED |
-| W16 | Adversarial Benchmark | NOT STARTED |
+| W16 | Adversarial Benchmark | COMPLETE (29/33 passing; 4 pre-existing failures in timing/semantic drift) |
 | W17 | Security + Reliability | NOT STARTED |
 | W18 | Full Automated Testing | NOT STARTED |
 | W19 | Deployment | NOT STARTED |

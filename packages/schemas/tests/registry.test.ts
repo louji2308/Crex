@@ -14,8 +14,8 @@ describe("SCHEMAS_VERSION", () => {
 });
 
 describe("FROZEN_CONTRACTS", () => {
-  it("freezes exactly the 17 Wave 1 + Wave 2 contracts", () => {
-    expect(FROZEN_CONTRACTS).toHaveLength(17);
+  it("freezes the 18 Wave 1 + Wave 2 + Wave 13 contracts", () => {
+    expect(FROZEN_CONTRACTS).toHaveLength(18);
     expect(FROZEN_CONTRACTS).toEqual([
       "Project",
       "SourceAsset",
@@ -31,6 +31,7 @@ describe("FROZEN_CONTRACTS", () => {
       "SponsorRequirement",
       "RepairAction",
       "ReleasePassport",
+      "ProvenanceRecord",
       "APIResponse",
       "AiOutput",
       "ApiError",
@@ -55,8 +56,8 @@ describe("DEFERRED_CONTRACTS", () => {
 });
 
 describe("CONTRACTS registry", () => {
-  it("exposes exactly the 17 frozen contracts", () => {
-    expect(Object.keys(CONTRACTS)).toHaveLength(17);
+  it("exposes exactly the 18 frozen contracts", () => {
+    expect(Object.keys(CONTRACTS)).toHaveLength(18);
   });
 
   it("every frozen name resolves to a schema or schema factory", () => {
@@ -81,6 +82,7 @@ describe("CONTRACTS registry", () => {
       SponsorRequirement: CONTRACTS.SponsorRequirement,
       RepairAction: CONTRACTS.RepairAction,
       ReleasePassport: CONTRACTS.ReleasePassport,
+      ProvenanceRecord: CONTRACTS.ProvenanceRecord,
       AiOutput: CONTRACTS.AiOutput,
       ApiError: CONTRACTS.ApiError,
     };
