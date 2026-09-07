@@ -27,9 +27,29 @@ export const claimExtractionSchema = z.strictObject({
 
 export type ClaimExtraction = z.infer<typeof claimExtractionSchema>;
 
+export const assetGenerationSchema = z.strictObject({
+  assets: z.array(
+    z.strictObject({
+      asset_type: z.string().min(1),
+      title: z.string().min(1),
+      components: z.array(
+        z.strictObject({
+          content: z.string().min(1),
+          source_references: z.array(z.string().uuid()),
+          claim_references: z.array(z.string().uuid()),
+          constraint_references: z.array(z.string().uuid()),
+        }),
+      ),
+    }),
+  ),
+});
+
+export type AssetGeneration = z.infer<typeof assetGenerationSchema>;
+
 export const aiTaskContentSchema = z.discriminatedUnion("task", [
   z.strictObject({ task: z.literal("SEMANTIC_UNDERSTANDING"), content: sourceUnderstandingSchema }),
   z.strictObject({ task: z.literal("CLAIM_EXTRACTION"), content: claimExtractionSchema }),
+  z.strictObject({ task: z.literal("ASSET_GENERATION"), content: assetGenerationSchema }),
 ]);
 
 export type AiTaskContent = z.infer<typeof aiTaskContentSchema>;

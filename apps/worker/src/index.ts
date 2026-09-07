@@ -26,6 +26,7 @@ import { createAudienceApi } from "./audience-routes";
 import { createUnderstandingApi } from "./understand-routes";
 import { createEvidenceGraphApi } from "./evidence-graph-routes";
 import { createVerificationApi } from "./verification-routes";
+import { createGenerationApi } from "./generation-routes";
 import { errorResponse, errorResponseForCode } from "./http";
 import { IncrementalSha256 } from "@crex/media";
 
@@ -381,6 +382,10 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
   const evidenceGraphApi = createEvidenceGraphApi(env);
   const evidenceGraphResponse = await evidenceGraphApi.handle(request, path);
   if (evidenceGraphResponse !== null) return evidenceGraphResponse;
+
+  const generationApi = createGenerationApi(env);
+  const generationResponse = await generationApi.handle(request, path);
+  if (generationResponse !== null) return generationResponse;
 
   return errorResponseForCode("NOT_FOUND", "route not found");
 }

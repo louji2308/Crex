@@ -6,85 +6,100 @@ Subcommands:
   embed  — build and embed a C2PA manifest into a media file
   verify — open a media file and print active manifest info as JSON
 
-Requires the `c2pa` Python package. Exit 2 if not installed.
+Requires the `c2pa-python` PyPI package (Adobe CAI bindings). Exit 2 if not installed.
 """
 
 import argparse
 import json
-import sys
 import os
+import sys
 
 try:
     import c2pa  # type: ignore
 except ImportError:
     print(
-        json.dumps({"error": "c2pa Python package not installed. Install with: pip install c2pa"}),
+        json.dumps({"error": "c2pa-python SDK not installed. Install with: pip install c2pa-python"}),
         file=sys.stderr,
     )
     sys.exit(2)
 
 
+def _read_pem(path: str, what: str) -> str:
+    with open(path, "r", encoding="utf-8") as f:
+        content = f.read()
+    if not content.strip():
+        raise ValueError(f"{what} file is empty: {path}")
+    return content
+
+
+def _builder_manifest(manifest_data: dict):
+    """Shape our runtime manifest into the Builder manifest JSON format."""
+    bm = dict(manifest_data)
+
+    # sign_file resolves the container format from the source file,
+    # so the top-level "format" hint is not passed to the Builder.
+    bm.pop("format", None)
+
+    ingredients = []
+    for ing in manifest_data.get("ingredients", []):
+        entry = {"title": ing.get("title", "")}
+        digest = ing.get("hash")
+        alg = ing.get("hash_alg") or "sha256"
+        if digest:
+            if ":" in str(digest):
+                entry["digest"] = str(digest)
+            else:
+                entry["digest"] = f"{alg}:{digest}"
+        ingredients.append(entry)
+    if ingredients:
+        bm["ingredients"] = ingredients
+
+    return bm
+
+
 def cmd_embed(args: argparse.Namespace) -> None:
     """Embed a C2PA manifest into a media file."""
     try:
-        manifest_path = args.manifest
-        if not manifest_path:
+        if not args.manifest:
             print(json.dumps({"error": "--manifest is required for embed"}), file=sys.stderr)
             sys.exit(1)
-
-        with open(manifest_path, "r", encoding="utf-8") as f:
-            manifest_data = json.load(f)
-
-        output_path = args.output
-        if not output_path:
+        if not args.output:
             print(json.dumps({"error": "--output is required for embed"}), file=sys.stderr)
             sys.exit(1)
-
-        input_path = args.input
-
-        if not os.path.exists(input_path):
-            print(json.dumps({"error": f"Input file not found: {input_path}"}), file=sys.stderr)
+        if not os.path.exists(args.input):
+            print(json.dumps({"error": f"Input file not found: {args.input}"}), file=sys.stderr)
             sys.exit(1)
 
-        try:
-            manifest_obj = c2pa.Manifest()
-            manifest_obj.set_claim_generator(manifest_data.get("claim_generator", "crex/0.1.0"))
-            manifest_obj.set_format(manifest_data.get("format", "video/mp4"))
+        with open(args.manifest, "r", encoding="utf-8") as f:
+            manifest_data = json.load(f)
 
-            if "title" in manifest_data:
-                manifest_obj.set_title(manifest_data["title"])
+        builder = c2pa.Builder(_builder_manifest(manifest_data))
 
-            for assertion in manifest_data.get("assertions", []):
-                label = assertion.get("label", "")
-                data = assertion.get("data", {})
-                manifest_obj.add_assertion(label, data)
-
-            for ingredient in manifest_data.get("ingredients", []):
-                manifest_obj.add_ingredient(
-                    ingredient.get("title", ""),
-                    ingredient.get("hash", ""),
-                    ingredient.get("hash_alg", "sha256"),
-                )
-
-            sign_cert = args.sign_cert
-            sign_key = args.sign_key
-            passphrase = args.passphrase
-
-            if sign_cert and sign_key:
-                signer = c2pa.Signer()
-                signer.load_certificate(sign_cert, passphrase or "")
-                signer.load_private_key(sign_key, passphrase or "")
-                manifest_obj.sign(signer)
-
-            c2pa.embed(input_path, output_path, manifest_obj)
-            print(json.dumps({"status": "ok", "output": output_path}))
-
-        except AttributeError as exc:
-            print(json.dumps({"error": f"c2pa API shape mismatch: {exc}"}), file=sys.stderr)
+        if args.sign_cert and args.sign_key:
+            signer_info = c2pa.C2paSignerInfo(
+                args.sign_alg.encode("utf-8"),
+                _read_pem(args.sign_cert, "signing certificate").encode("utf-8"),
+                _read_pem(args.sign_key, "signing key").encode("utf-8"),
+                None,
+            )
+            signer = c2pa.Signer.from_info(signer_info)
+            builder.sign_file(args.input, args.output, signer)
+        else:
+            # The CAI SDK's Builder requires a signer and cannot produce an
+            # unsigned claim. Represent this honestly: records without a
+            # signing key remain UNSIGNED (bound to the real R2 SHA-256),
+            # and we do not fabricate a throwaway signature.
+            print(
+                json.dumps({
+                    "error": "The CAI SDK requires a signer to embed a C2PA manifest. "
+                             "Pass --sign-cert/--sign-key, or keep the record UNSIGNED "
+                             "(asset hash binding only)."
+                }),
+                file=sys.stderr,
+            )
             sys.exit(1)
-        except Exception as exc:
-            print(json.dumps({"error": str(exc)}), file=sys.stderr)
-            sys.exit(1)
+
+        print(json.dumps({"status": "ok", "output": args.output}))
 
     except json.JSONDecodeError as exc:
         print(json.dumps({"error": f"Invalid manifest JSON: {exc}"}), file=sys.stderr)
@@ -97,51 +112,56 @@ def cmd_embed(args: argparse.Namespace) -> None:
 def cmd_verify(args: argparse.Namespace) -> None:
     """Verify a C2PA-embedded media file."""
     try:
-        input_path = args.input
-
-        if not os.path.exists(input_path):
-            print(json.dumps({"error": f"Input file not found: {input_path}"}), file=sys.stderr)
+        if not os.path.exists(args.input):
+            print(json.dumps({"error": f"Input file not found: {args.input}"}), file=sys.stderr)
             sys.exit(1)
 
-        try:
-            proof = c2pa.proof_from_file(input_path)
-            result = {
-                "manifests": [],
-            }
+        reader = c2pa.Reader(args.input)
+        store = json.loads(reader.json())
 
-            if hasattr(proof, "manifests"):
-                for manifest in proof.manifests:
-                    m_info = {
-                        "label": getattr(manifest, "label", None),
-                        "claim_generator": getattr(manifest, "claim_generator", None),
-                        "title": getattr(manifest, "title", None),
-                        "format": getattr(manifest, "format", None),
-                        "ingredients": [],
+        result = {"manifests": []}
+
+        if isinstance(store, dict):
+            manifests = store.get("manifests") or {}
+            active = store.get("active_manifest")
+            keys = [active] if active and active in manifests else list(manifests.keys())
+
+            for label in keys:
+                claim = manifests.get(label) or {}
+                sig = store.get("signature") or claim.get("signature")
+
+                ingredients = []
+                for ing in claim.get("ingredients") or []:
+                    digest = ing.get("digest")
+                    hash_alg = None
+                    hash_val = digest
+                    if digest and ":" in str(digest):
+                        hash_alg, hash_val = str(digest).split(":", 1)
+                    ingredients.append({
+                        "title": ing.get("title"),
+                        "hash": hash_val,
+                        "hash_alg": hash_alg,
+                    })
+
+                m_info = {
+                    "label": claim.get("label", label),
+                    "claim_generator": claim.get("claim_generator"),
+                    "title": claim.get("title"),
+                    "format": claim.get("format"),
+                    "signature": None,
+                    "ingredients": ingredients,
+                }
+
+                if sig and isinstance(sig, dict):
+                    m_info["signature"] = {
+                        "issuer": sig.get("issuer"),
+                        "valid_certificate": sig.get("valid_certificate"),
+                        "valid_signature": sig.get("valid_signature"),
                     }
 
-                    if hasattr(manifest, "ingredients"):
-                        for ing in manifest.ingredients:
-                            m_info["ingredients"].append({
-                                "title": getattr(ing, "title", None),
-                                "hash": getattr(ing, "hash", None),
-                                "hash_alg": getattr(ing, "hash_alg", None),
-                            })
+                result["manifests"].append(m_info)
 
-                    if hasattr(manifest, "signature"):
-                        sig = manifest.signature
-                        m_info["signature"] = {
-                            "issuer": getattr(sig, "issuer", None),
-                            "valid_certificate": getattr(sig, "valid_certificate", None),
-                            "valid_signature": getattr(sig, "valid_signature", None),
-                        }
-
-                    result["manifests"].append(m_info)
-
-            print(json.dumps(result))
-
-        except Exception as exc:
-            print(json.dumps({"error": str(exc)}), file=sys.stderr)
-            sys.exit(1)
+        print(json.dumps(result))
 
     except Exception as exc:
         print(json.dumps({"error": str(exc)}), file=sys.stderr)
@@ -158,7 +178,9 @@ def main() -> None:
     embed_parser.add_argument("--manifest", required=True, help="Path to manifest JSON")
     embed_parser.add_argument("--sign-cert", help="PEM certificate for signing")
     embed_parser.add_argument("--sign-key", help="Private key for signing")
-    embed_parser.add_argument("--passphrase", help="Passphrase for private key")
+    embed_parser.add_argument("--sign-alg", default="ps256",
+                              help="Signing algorithm (ps256 for RSA, es256 for EC)")
+    embed_parser.add_argument("--passphrase", help="Accepted for CLI compat; encrypted PEM keys are not supported by the CAI SDK")
 
     verify_parser = subparsers.add_parser("verify", help="Verify C2PA manifest in a file")
     verify_parser.add_argument("--input", required=True, help="Input media file")
