@@ -84,6 +84,219 @@ suite("repositories", () => {
     expect(await repository.list()).toHaveLength(1);
   });
 
+  it("source_assets: update merges partial patches and round-trips media JSON", async () => {
+    const { ProjectRepository, SourceAssetRepository } = reposOf();
+    const fx = fixturesOf();
+    await new ProjectRepository(db).insert(fx.makeProject());
+    const repository = new SourceAssetRepository(db);
+    const inserted = await repository.insert(fx.makeSourceAsset());
+
+    const media = {
+      container: "mp4",
+      video: { codec: "h264", width: 1920, height: 1080 },
+      audio: { codec: "aac" },
+    };
+    const updated = await repository.update(fx.ASSET_ID, {
+      size_bytes: 2048,
+      duration_seconds: 30,
+      media,
+    });
+    expect(updated.id).toBe(fx.ASSET_ID);
+    expect(updated.size_bytes).toBe(2048);
+    expect(updated.duration_seconds).toBe(30);
+    expect(updated.media).toEqual(media);
+    expect(updated.file_name).toBe("budget-laptops.mp4");
+    expect(updated.status).toBe(inserted.status);
+    expect(updated.updated_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+
+    const got = await repository.get(fx.ASSET_ID);
+    expect(got).toEqual(updated);
+    expect(got?.media?.video?.codec).toBe("h264");
+    expect(got?.media?.audio?.codec).toBe("aac");
+  });
+
+  it("source_assets: update rejects an invalid merged shape", async () => {
+    const { ProjectRepository, SourceAssetRepository } = reposOf();
+    const fx = fixturesOf();
+    await new ProjectRepository(db).insert(fx.makeProject());
+    const repository = new SourceAssetRepository(db);
+    await repository.insert(fx.makeSourceAsset());
+
+    await expect(
+      repository.update(fx.ASSET_ID, { status: "BOGUS" } as unknown as Partial<import("@crex/schemas").SourceAsset>),
+    ).rejects.toThrow();
+  });
+
+  it("source_assets: update throws SOURCE_NOT_FOUND for a missing id", async () => {
+    const { SourceAssetRepository } = reposOf();
+    const repository = new SourceAssetRepository(db);
+
+    await expect(repository.update("missing", { size_bytes: 1 })).rejects.toMatchObject({
+      code: "SOURCE_NOT_FOUND",
+    });
+  });
+
+  it("source_assets: transition moves along valid states and persists status", async () => {
+    const { ProjectRepository, SourceAssetRepository } = reposOf();
+    const fx = fixturesOf();
+    await new ProjectRepository(db).insert(fx.makeProject());
+    const repository = new SourceAssetRepository(db);
+    await repository.insert(fx.makeSourceAsset({ status: "UPLOADING" }));
+
+    const uploaded = await repository.transition(fx.ASSET_ID, "UPLOADED");
+    expect(uploaded.status).toBe("UPLOADED");
+    const validating = await repository.transition(fx.ASSET_ID, "VALIDATING");
+    expect(validating.status).toBe("VALIDATING");
+    const valid = await repository.transition(fx.ASSET_ID, "VALID");
+    expect(valid.status).toBe("VALID");
+    const processing = await repository.transition(fx.ASSET_ID, "PROCESSING");
+    expect(processing.status).toBe("PROCESSING");
+    const ready = await repository.transition(fx.ASSET_ID, "READY");
+    expect(ready.status).toBe("READY");
+    expect(ready.updated_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+
+    const got = await repository.get(fx.ASSET_ID);
+    expect(got?.status).toBe("READY");
+  });
+
+  it("source_assets: transition rejects an illegal state change and leaves status intact", async () => {
+    const { ProjectRepository, SourceAssetRepository } = reposOf();
+    const fx = fixturesOf();
+    await new ProjectRepository(db).insert(fx.makeProject());
+    const repository = new SourceAssetRepository(db);
+    await repository.insert(fx.makeSourceAsset({ status: "UPLOADED" }));
+
+    await expect(repository.transition(fx.ASSET_ID, "READY")).rejects.toMatchObject({
+      code: "INVALID_SOURCE_STATE",
+      details: { from: "UPLOADED", to: "READY" },
+    });
+    await expect(repository.transition(fx.ASSET_ID, "READY")).rejects.toThrow(/cannot transition source/);
+
+    expect((await repository.get(fx.ASSET_ID))?.status).toBe("UPLOADED");
+  });
+
+  it("source_assets: transition onlyIfIn narrows the allowed-from set", async () => {
+    const { ProjectRepository, SourceAssetRepository } = reposOf();
+    const fx = fixturesOf();
+    await new ProjectRepository(db).insert(fx.makeProject());
+    const repository = new SourceAssetRepository(db);
+    await repository.insert(fx.makeSourceAsset({ status: "UPLOADED" }));
+
+    await expect(repository.transition(fx.ASSET_ID, "VALIDATING", { onlyIfIn: ["UPLOADING"] })).rejects.toMatchObject({
+      code: "INVALID_SOURCE_STATE",
+      details: { from: "UPLOADED", to: "VALIDATING" },
+    });
+
+    const moved = await repository.transition(fx.ASSET_ID, "VALIDATING", { onlyIfIn: ["UPLOADING", "UPLOADED"] });
+    expect(moved.status).toBe("VALIDATING");
+  });
+
+  it("source_assets: transition throws SOURCE_NOT_FOUND for a missing id", async () => {
+    const { SourceAssetRepository } = reposOf();
+    const repository = new SourceAssetRepository(db);
+
+    await expect(repository.transition("missing", "UPLOADED")).rejects.toMatchObject({
+      code: "SOURCE_NOT_FOUND",
+    });
+  });
+
+  it("source_uploads: begin creates an UPLOADING row", async () => {
+    const { ProjectRepository, SourceUploadRepository } = reposOf();
+    const fx = fixturesOf();
+    await new ProjectRepository(db).insert(fx.makeProject());
+    const repository = new SourceUploadRepository(db);
+
+    const upload = fx.makeSourceUpload();
+    const begun = await repository.begin({
+      id: upload.id,
+      projectId: upload.projectId,
+      objectKey: upload.objectKey,
+      fileName: upload.fileName,
+      fileType: upload.fileType,
+    });
+    expect(begun).toEqual(upload);
+    expect(begun.status).toBe("UPLOADING");
+    expect(begun.error).toBe("");
+  });
+
+  it("source_uploads: markUploaded persists the UPLOADED status", async () => {
+    const { ProjectRepository, SourceUploadRepository } = reposOf();
+    const fx = fixturesOf();
+    await new ProjectRepository(db).insert(fx.makeProject());
+    const repository = new SourceUploadRepository(db);
+
+    const upload = fx.makeSourceUpload();
+    await repository.begin({
+      id: upload.id,
+      projectId: upload.projectId,
+      objectKey: upload.objectKey,
+      fileName: upload.fileName,
+      fileType: upload.fileType,
+    });
+
+    const uploaded = await repository.markUploaded(fx.UPLOAD_ID);
+    expect(uploaded.status).toBe("UPLOADED");
+    expect(uploaded.error).toBe("");
+
+    expect((await repository.get(fx.UPLOAD_ID))?.status).toBe("UPLOADED");
+  });
+
+  it("source_uploads: markFailed records the error", async () => {
+    const { ProjectRepository, SourceUploadRepository } = reposOf();
+    const fx = fixturesOf();
+    await new ProjectRepository(db).insert(fx.makeProject());
+    const repository = new SourceUploadRepository(db);
+
+    const upload = fx.makeSourceUpload();
+    await repository.begin({
+      id: upload.id,
+      projectId: upload.projectId,
+      objectKey: upload.objectKey,
+      fileName: upload.fileName,
+      fileType: upload.fileType,
+    });
+
+    const failed = await repository.markFailed(fx.UPLOAD_ID, "checksum mismatch");
+    expect(failed.status).toBe("FAILED");
+    expect(failed.error).toBe("checksum mismatch");
+
+    expect((await repository.get(fx.UPLOAD_ID))?.error).toBe("checksum mismatch");
+  });
+
+  it("source_uploads: get returns null for an unknown id", async () => {
+    const { SourceUploadRepository } = reposOf();
+    const repository = new SourceUploadRepository(db);
+
+    expect(await repository.get("missing")).toBeNull();
+  });
+
+  it("source_uploads: duplicate begin throws", async () => {
+    const { ProjectRepository, SourceUploadRepository } = reposOf();
+    const fx = fixturesOf();
+    await new ProjectRepository(db).insert(fx.makeProject());
+    const repository = new SourceUploadRepository(db);
+
+    const upload = fx.makeSourceUpload();
+    const input = {
+      id: upload.id,
+      projectId: upload.projectId,
+      objectKey: upload.objectKey,
+      fileName: upload.fileName,
+      fileType: upload.fileType,
+    };
+    await repository.begin(input);
+    await expect(repository.begin(input)).rejects.toThrow();
+  });
+
+  it("source_uploads: markUploaded throws UPLOAD_NOT_FOUND for a missing id", async () => {
+    const { SourceUploadRepository } = reposOf();
+    const repository = new SourceUploadRepository(db);
+
+    await expect(repository.markUploaded("missing")).rejects.toMatchObject({
+      code: "UPLOAD_NOT_FOUND",
+    });
+  });
+
   it("transcript_segments: insert, get, listBySourceAsset ordered by index", async () => {
     const { ProjectRepository, SourceAssetRepository, TranscriptSegmentRepository } = reposOf();
     const fx = fixturesOf();

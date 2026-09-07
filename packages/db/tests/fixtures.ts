@@ -11,6 +11,7 @@ import type {
   VerificationRun,
   WorkflowState,
 } from "@crex/schemas";
+import type { SourceUpload } from "../src/repositories";
 
 export function isoNow(): string {
   return new Date().toISOString();
@@ -27,6 +28,7 @@ export const RUN_ID = "a0000000-0000-4000-8000-000000000008";
 export const FINDING_ID = "a0000000-0000-4000-8000-000000000009";
 export const WORKFLOW_ID = "a0000000-0000-4000-8000-000000000010";
 export const AI_OUTPUT_ID = "a0000000-0000-4000-8000-000000000011";
+export const UPLOAD_ID = "a0000000-0000-4000-8000-000000000012";
 
 export function makeProject(overrides: Partial<Project> = {}): Project {
   const now = isoNow();
@@ -57,6 +59,22 @@ export function makeSourceAsset(overrides: Partial<SourceAsset> = {}): SourceAss
     analysis_status: "PENDING",
     created_at: now,
     updated_at: now,
+    ...overrides,
+  };
+}
+
+export function makeSourceUpload(overrides: Partial<SourceUpload> = {}): SourceUpload {
+  const now = isoNow();
+  return {
+    id: UPLOAD_ID,
+    projectId: PROJECT_ID,
+    objectKey: "projects/a0000000-0000-4000-8000-000000000001/uploads/budget-laptops.mp4",
+    fileName: "budget-laptops.mp4",
+    fileType: "video/mp4",
+    status: "UPLOADING",
+    error: "",
+    createdAt: now,
+    updatedAt: now,
     ...overrides,
   };
 }

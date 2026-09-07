@@ -1,5 +1,5 @@
 {
-  "name": "@crex/db",
+  "name": "@crex/media",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -8,10 +8,6 @@
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
-  },
-  "dependencies": {
-    "@crex/core": "workspace:*",
-    "@crex/schemas": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

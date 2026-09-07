@@ -1,5 +1,7 @@
 export { ProjectRepository } from "./projects";
-export { SourceAssetRepository } from "./source-assets";
+export { SourceAssetRepository, SOURCE_STATE_TRANSITIONS } from "./source-assets";
+export { SourceUploadRepository } from "./source-uploads";
+export type { SourceUpload } from "./source-uploads";
 export { TranscriptSegmentRepository } from "./transcript-segments";
 export { ClaimRepository } from "./claims";
 export { EvidenceRepository } from "./evidence";

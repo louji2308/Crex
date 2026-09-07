@@ -14,6 +14,7 @@ const TABLE_NAMES = [
   "generated_components",
   "projects",
   "source_assets",
+  "source_uploads",
   "transcript_segments",
   "verification_findings",
   "verification_runs",

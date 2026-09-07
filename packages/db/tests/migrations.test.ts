@@ -8,6 +8,7 @@ import { getMigrationsPath, listMigrations, migrate } from "../src/migrations";
 const TABLE_NAMES = [
   "projects",
   "source_assets",
+  "source_uploads",
   "transcript_segments",
   "claims",
   "evidence",
@@ -102,6 +103,7 @@ describe("migrate", () => {
     await migrate(db);
     const expectedIndexes = [
       "idx_source_assets_project_id",
+      "idx_source_uploads_project_id",
       "idx_transcript_segments_source_asset_id",
       "idx_transcript_segments_asset_index",
       "idx_claims_project_id",
