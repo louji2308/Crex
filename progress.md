@@ -114,6 +114,8 @@ The approved architecture is:
 | `@crex/core` (Lead foundation) | Sep 7 | config/env loader, ApiError, logger, workflow transitions, API envelopes — 15 tests pass |
 | `@crex/tests` (Worker C) | Sep 7 | fixtures, contract conformance, db integration — 76 tests pass |
 | Update README.md | Sep 6 | Reflects actual project state |
+| Wave 1 integration | Sep 7 | Reconciled parallel worker output; all packages typecheck + 222 tests green |
+| Commit + push Wave 1 foundation | Sep 7 | `c305fe4` `chore: establish shared engineering foundation` on main |
 
 ---
 
@@ -121,9 +123,7 @@ The approved architecture is:
 
 | Task | Owner | Status |
 |------|-------|--------|
-| Wave 1 docs update (Todo 1) | Lead | IN PROGRESS |
-| Wave 1 integration + final validation (Todo 6) | Lead | IN PROGRESS |
-| Wave 1 commit + push (Todo 8) | Lead | NOT STARTED |
+| None — Wave 1 complete | — | Awaiting Wave 2 start |
 
 ---
 
@@ -135,27 +135,18 @@ None currently.
 
 ## Next
 
-### Immediate Next Wave (Wave 1 — Shared Contracts + Project Foundation)
+### Wave 2 — Real Infrastructure Foundation (not started)
 
-**Objective:** Create the stable interfaces all later workers depend on.
-
-| Worker | Task | Deliverable |
-|--------|------|-------------|
-| Lead | Monorepo scaffolding, shared config, error model, core foundation | `packages/core/`, `apps/web/`, `apps/worker/` |
-| Worker A | Zod schemas, TS types, API response contracts | `packages/schemas/src/` |
-| Worker B | D1 (SQLite) schema, migrations, data-access layer | `packages/db/`, `packages/db/migrations/` |
-| Worker C | Test foundation (Vitest), fixtures, contract tests | `tests/` |
-
-**Entry Criteria:**
-- Wave 0 audits complete ✅
-- Architecture confirmed ✅
-- Shared contracts identified ✅
+- Add remaining deferred contracts that become persistable: `Constraint`, `SponsorRequirement`, `RepairAction`, `ReleasePassport` schemas.
+- Wire real AI providers (NVIDIA primary via `NVIDIA_API_KEY`, Mistral fallback via `MISTRAL_API_KEY`) behind the `@crex/schemas` `aiOutputSchema` validation gate.
+- Deploy foundations: D1 binding, R2, Workflows using the stock `apps/worker` scaffold as reference.
+- Replace `node:sqlite` with the Cloudflare D1 binding behind the existing `SqlDb` seam where required by deployment.
 
 **Acceptance Criteria:**
-- All contracts compile
-- Tests run
-- No duplicate schema definitions
-- Downstream workers can build against frozen contracts
+- Contracts compile ✅
+- Tests run ✅ (222 passing)
+- No duplicate schema definitions ✅
+- Downstream workers can build against frozen contracts ✅
 
 ---
 
@@ -242,7 +233,7 @@ Deferred (registry-documented only, no code):
 | Wave | Name | Status |
 |------|------|--------|
 | W0 | Repository Discovery + Contract Freeze | **COMPLETED** |
-| W1 | Shared Contracts + Project Foundation | **IN PROGRESS** (foundation code complete, awaiting commit/push) |
+| W1 | Shared Contracts + Project Foundation | **COMPLETED** — `c305fe4` committed & pushed |
 | W2 | Real Infrastructure Foundation | NOT STARTED |
 | W3 | Source Ingestion Pipeline | NOT STARTED |
 | W4 | Video Understanding | NOT STARTED |
