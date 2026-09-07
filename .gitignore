@@ -85,3 +85,14 @@ whisper_models/
 
 # Recon
 .recon/
+
+# C2PA local signing test artifacts (private keys + generated test media)
+ca/
+*.crt
+*.key
+*.pem
+*.csr
+*.srl
+in.png
+signed.png
+manifest.json
