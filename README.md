@@ -173,7 +173,7 @@ Without an AI key, `/ai/analyze` returns `503 AI_NOT_CONFIGURED` (honest gating)
 
 ```bash
 pnpm -r typecheck   # strict TS across all packages (8/8 green)
-pnpm -r test        # Vitest across all packages (480 tests)
+pnpm -r test        # Vitest across all packages (482 tests)
 ```
 
 ---

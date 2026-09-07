@@ -1,0 +1,114 @@
+{
+  "name": "laptop-review",
+  "description": "Laptop review video with battery life claims, sponsor requirements, and numerical data",
+  "source": {
+    "duration_seconds": 720,
+    "segments": [
+      {
+        "index": 0,
+        "start_time": 0,
+        "end_time": 15,
+        "text": "Sponsored by TechBrand. Today we're reviewing the new ProBook X1 laptop.",
+        "speaker": "host"
+      },
+      {
+        "index": 1,
+        "start_time": 15,
+        "end_time": 45,
+        "text": "The ProBook X1 battery lasts approximately 10 hours under typical usage according to the manufacturer.",
+        "speaker": "host"
+      },
+      {
+        "index": 2,
+        "start_time": 45,
+        "end_time": 75,
+        "text": "In our testing, we got 9.5 hours of mixed workload which is close to the claim.",
+        "speaker": "host"
+      },
+      {
+        "index": 3,
+        "start_time": 75,
+        "end_time": 90,
+        "text": "The laptop costs $1,299 and comes with a 2-year warranty.",
+        "speaker": "host"
+      },
+      {
+        "index": 4,
+        "start_time": 90,
+        "end_time": 105,
+        "text": "Use code TECH20 at techbrand.example/probook for 20% off your purchase.",
+        "speaker": "host"
+      }
+    ]
+  },
+  "expected_claims": [
+    {
+      "type": "CLAIM",
+      "content": "The ProBook X1 battery lasts approximately 10 hours under typical usage",
+      "qualifiers": ["approximately", "under typical usage"],
+      "segment_index": 1
+    },
+    {
+      "type": "CLAIM",
+      "content": "In testing we got 9.5 hours of mixed workload",
+      "qualifiers": ["in our testing", "mixed workload"],
+      "segment_index": 2
+    },
+    {
+      "type": "NUMERICAL",
+      "content": "The laptop costs $1,299",
+      "qualifiers": [],
+      "segment_index": 3
+    },
+    {
+      "type": "RECOMMENDATION",
+      "content": "Use code TECH20 for 20% off",
+      "qualifiers": [],
+      "segment_index": 4
+    }
+  ],
+  "expected_findings": [
+    {
+      "type": "NUMERICAL_DRIFT",
+      "severity": "BLOCK",
+      "trigger": "Generated claim says 10 hours but source says approximately 10 hours"
+    },
+    {
+      "type": "SPONSOR_COMPLIANCE",
+      "severity": "BLOCK",
+      "trigger": "Missing 'Sponsored by TechBrand' disclosure"
+    },
+    {
+      "type": "SPONSOR_COMPLIANCE",
+      "severity": "BLOCK",
+      "trigger": "Missing discount code TECH20"
+    },
+    {
+      "type": "SPONSOR_COMPLIANCE",
+      "severity": "BLOCK",
+      "trigger": "Missing required URL techbrand.example/probook"
+    }
+  ],
+  "sponsor_requirements": [
+    {
+      "type": "DISCLOSURE",
+      "value": "Sponsored by TechBrand",
+      "required": true
+    },
+    {
+      "type": "DISCOUNT_CODE",
+      "value": "TECH20",
+      "required": true
+    },
+    {
+      "type": "REQUIRED_URL",
+      "value": "techbrand.example/probook",
+      "required": true
+    },
+    {
+      "type": "MUST_NOT_CLAIM",
+      "value": "guaranteed battery life",
+      "required": true
+    }
+  ]
+}

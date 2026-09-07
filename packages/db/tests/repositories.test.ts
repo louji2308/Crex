@@ -517,6 +517,69 @@ suite("repositories", () => {
     expect(await repository.get("missing")).toBeUndefined();
   });
 
+  it("constraints: insert, get, enabled round-trip, listByProject", async () => {
+    const { ProjectRepository, ConstraintRepository } = reposOf();
+    const fx = fixturesOf();
+    await new ProjectRepository(db).insert(fx.makeProject());
+    const repository = new ConstraintRepository(db);
+
+    const input = fx.makeConstraint();
+    const inserted = await repository.insert(input);
+    expect(inserted.id).toBe(fx.CONSTRAINT_ID);
+    expect(inserted.enabled).toBe(true);
+
+    const got = await repository.get(fx.CONSTRAINT_ID);
+    expect(got).toEqual(inserted);
+    expect(got?.category).toBe("TECHNICAL_NUANCE");
+    expect(got?.source).toBe("MANUAL");
+    expect(got?.summary).toBe("Preserve the test-specific qualifier in every numerical claim.");
+
+    const disabled = await repository.insert(
+      fx.makeConstraint({
+        id: "a0000000-0000-4000-8000-000000000014",
+        enabled: false,
+      }),
+    );
+    expect(disabled.enabled).toBe(false);
+
+    expect(await repository.listByProject(fx.PROJECT_ID)).toEqual([{ ...inserted }, disabled]);
+    expect(await repository.listByProject("other-project")).toEqual([]);
+    expect(await repository.get("missing")).toBeUndefined();
+  });
+
+  it("sponsor_requirements: insert, get, required + enabled round-trip, listByProject", async () => {
+    const { ProjectRepository, SponsorRequirementRepository } = reposOf();
+    const fx = fixturesOf();
+    await new ProjectRepository(db).insert(fx.makeProject());
+    const repository = new SponsorRequirementRepository(db);
+
+    const input = fx.makeSponsorRequirement();
+    const inserted = await repository.insert(input);
+    expect(inserted.id).toBe(fx.SPONSOR_REQUIREMENT_ID);
+    expect(inserted.required).toBe(true);
+    expect(inserted.enabled).toBe(true);
+
+    const got = await repository.get(fx.SPONSOR_REQUIREMENT_ID);
+    expect(got).toEqual(inserted);
+    expect(got?.sponsor_name).toBe("TechBrand");
+    expect(got?.requirement_type).toBe("DISCOUNT_CODE");
+    expect(got?.value).toBe("CODE20");
+
+    const optional = await repository.insert(
+      fx.makeSponsorRequirement({
+        id: "a0000000-0000-4000-8000-000000000015",
+        required: false,
+        enabled: false,
+      }),
+    );
+    expect(optional.required).toBe(false);
+    expect(optional.enabled).toBe(false);
+
+    expect(await repository.listByProject(fx.PROJECT_ID)).toEqual([{ ...inserted }, optional]);
+    expect(await repository.listByProject("other-project")).toEqual([]);
+    expect(await repository.get("missing")).toBeUndefined();
+  });
+
   it("rejects an insert that violates a foreign key", async () => {
     const { SourceAssetRepository } = reposOf();
     const fx = fixturesOf();

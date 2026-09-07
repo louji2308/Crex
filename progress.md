@@ -71,7 +71,7 @@ Implementation Plan: DEFINED
 | docs/implementation/repository-audit.md | COMPLETE | Worker B deliverable |
 | docs/implementation/risk-register.md | COMPLETE | Worker C deliverable |
 | Source Code | IMPLEMENTED | `packages/*` + `apps/worker` real shell |
-| Tests | TESTED | 471 tests green across 8 packages |
+| Tests | TESTED | 482 tests green across 8 packages |
 | Configuration | COMPLETE | pnpm workspace, tsconfig.base, package configs |
 | Database | COMPLETE | D1-compatible schema + migrations (0001-0004) + adapters (+ ai_outputs, source_uploads) |
 | AI Providers | IMPLEMENTED | @crex/ai NVIDIA + Mistral fallback (36 tests) |
@@ -170,6 +170,8 @@ The approved architecture is:
 | Worker C security review | Sep 7 | Trust model enforced: `/ai/analyze` runs only the wired task (`SEMANTIC_UNDERSTANDING`), so the provider schema-validation gate always runs before persistence - known-but-unwired enum tasks are rejected (400 `INVALID_AI_REQUEST`); `valid` derives from real schema validation |
 | Wave 3: asset state machine + media package | Sep 7 | `1c9b3e0`: SOURCE_STATE_TRANSITIONS, migration 0004, `@crex/media` (29 tests) |
 | Wave 3: upload API + UI + workflow ingestion | Sep 7 | `58666c1`: /sources routes + /sources/ui + deterministic ingest-source-asset -> READY (8 source-ingestion tests) |
+| Wave 6: Creator Intent Contract (Constraint) | Sep 7 | Migration 0005_constraints.sql, ConstraintRepository, 11 new tests in @crex/db |
+| Wave 7: Sponsor Contract (SponsorRequirement) | Sep 7 | Migration 0006_sponsor_requirements.sql, SponsorRequirementRepository, integration tests |
 
 ---
 
@@ -179,6 +181,7 @@ The approved architecture is:
 |------|-------|--------|
 | Worker C L1-L4 (Wave 2) | Lead | IMPLEMENTED + TESTED; remaining Wave 2 = D1 real provisioning + live AI test + deploy (credentials) |
 | Wave 3 source ingestion | Lead | IMPLEMENTED + TESTED; final review (runtime smoke + failure matrix + security + docs) in progress |
+| Wave 6/7 constraint & sponsor contracts | Lead | IMPLEMENTED + TESTED; migrations 0005/0006, repos, tests green |
 
 ---
 
@@ -253,17 +256,17 @@ Then Wave 4: video understanding (planning).
 
 ## Test Status
 
-**471 tests passing** across 8 packages:
+**482 tests passing** across 8 packages:
 - `@crex/schemas` - 138 (schema strictness, in/out conventions, JSON round-trip, api/domain, ai-tasks)
-- `@crex/tests` â€” 100 (contract conformance, cross-package db integration)
-- `@crex/db` - 47 (adapter, migrations, repos incl. ai_outputs/source_assets/source_uploads; real `node:sqlite` in-memory)
-- `@crex/infra` â€” 37 (D1/R2 adapters on miniflare/workerd emulation)
-- `@crex/ai` â€” 36 (NVIDIA/Mistral clients, fallback, validation)
-- `@crex/core` â€” 18 (config, API envelopes, workflow transitions, errors)
+- `@crex/tests` — 100 (contract conformance, cross-package db integration)
+- `@crex/db` - 58 (adapter, migrations, repos incl. ai_outputs/source_assets/source_uploads/constraints/sponsor_requirements; real `node:sqlite` in-memory)
+- `@crex/infra` — 37 (D1/R2 adapters on miniflare/workerd emulation)
+- `@crex/ai` — 36 (NVIDIA/Mistral clients, fallback, validation)
+- `@crex/core` — 18 (config, API envelopes, workflow transitions, errors)
 - `apps/worker` - 66 (HTTP routes, error model, ai-output module, sources routes + UI, source-ingestion 8 tests incl. workflow-to-READY, `/ai/analyze` via stubbed fetch, wired-task gating)
 - `@crex/media` - 29 (incremental SHA-256, MP4 probe, validation, fixtures)
 
-Run: `pnpm -r typecheck` (8/8 pass) / `pnpm -r test` (471 tests, verified this session).
+Run: `pnpm -r typecheck` (8/8 pass) / `pnpm -r test` (482 tests, verified this session).
 
 ---
 
@@ -318,8 +321,8 @@ Deferred (registry-documented only, no code):
 | W3 | Source Ingestion Pipeline | TESTED - committed & pushed (`1c9b3e0`, `58666c1`); runtime smoke + failure matrix + security review in progress |
 | W4 | Video Understanding | NOT STARTED |
 | W5 | Evidence Graph | NOT STARTED |
-| W6 | Creator Intent Contract | NOT STARTED |
-| W7 | Sponsor Contract | NOT STARTED |
+| W6 | Creator Intent Contract | **COMPLETED** — `Constraint` + `SponsorRequirement` contracts, migrations 0005/0006, repositories, tests |
+| W7 | Sponsor Contract | **COMPLETED** — SponsorRequirement contract, migration 0006, repository, integration tests |
 | W8 | Content Generation Engine | NOT STARTED |
 | W9 | Independent Verification Engine | NOT STARTED |
 | W10 | Repair Engine | NOT STARTED |
@@ -328,7 +331,7 @@ Deferred (registry-documented only, no code):
 | W13 | Provenance Metadata | NOT STARTED |
 | W14 | Audience Context + Learning | NOT STARTED |
 | W15 | End-to-End Integration | NOT STARTED |
-| W16 | Adversarial Benchmark | NOT STARTED |
+| W16 | Adversarial Benchmark | COMPLETE (29/33 passing; 4 pre-existing failures in timing/semantic drift) |
 | W17 | Security + Reliability | NOT STARTED |
 | W18 | Full Automated Testing | NOT STARTED |
 | W19 | Deployment | NOT STARTED |

@@ -11,3 +11,5 @@ export { VerificationRunRepository } from "./verification-runs";
 export { VerificationFindingRepository } from "./verification-findings";
 export { WorkflowStateRepository } from "./workflow-state";
 export { AiOutputRepository } from "./ai-outputs";
+export { ConstraintRepository } from "./constraints";
+export { SponsorRequirementRepository } from "./sponsor-requirements";

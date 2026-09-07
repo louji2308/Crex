@@ -24,7 +24,7 @@ import {
 } from "../fixtures/schemas.js";
 
 describe("schemas + db integration on in-memory SQLite", () => {
-  it("migrates all 11 tables", async () => {
+  it("migrates all 14 tables", async () => {
     await withMemoryDb(async (db) => {
       const rows = await db
         .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
@@ -41,6 +41,9 @@ describe("schemas + db integration on in-memory SQLite", () => {
       expect(names).toContain("verification_runs");
       expect(names).toContain("verification_findings");
       expect(names).toContain("workflow_state");
+      expect(names).toContain("ai_outputs");
+      expect(names).toContain("constraints");
+      expect(names).toContain("sponsor_requirements");
     });
   });
 

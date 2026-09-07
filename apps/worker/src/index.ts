@@ -20,6 +20,7 @@ import {
 } from "./workflows/ai-output";
 import { mapInstanceStatusToPhase } from "./workflows/status-mapping";
 import { createSourcesApi } from "./sources-routes";
+import { createContractsApi } from "./contracts-routes";
 import { errorResponse, errorResponseForCode } from "./http";
 import { IncrementalSha256 } from "@crex/media";
 
@@ -351,6 +352,10 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
   const sourcesApi = createSourcesApi(env);
   const sourceResponse = await sourcesApi.handle(request, path);
   if (sourceResponse !== null) return sourceResponse;
+
+  const contractsApi = createContractsApi(env);
+  const contractResponse = await contractsApi.handle(request, path);
+  if (contractResponse !== null) return contractResponse;
 
   return errorResponseForCode("NOT_FOUND", "route not found");
 }

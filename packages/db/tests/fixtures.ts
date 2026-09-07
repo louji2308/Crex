@@ -1,11 +1,13 @@
 import type {
   AiOutput,
   Claim,
+  Constraint,
   Evidence,
   GeneratedAsset,
   GeneratedComponent,
   Project,
   SourceAsset,
+  SponsorRequirement,
   TranscriptSegment,
   VerificationFinding,
   VerificationRun,
@@ -29,6 +31,8 @@ export const FINDING_ID = "a0000000-0000-4000-8000-000000000009";
 export const WORKFLOW_ID = "a0000000-0000-4000-8000-000000000010";
 export const AI_OUTPUT_ID = "a0000000-0000-4000-8000-000000000011";
 export const UPLOAD_ID = "a0000000-0000-4000-8000-000000000012";
+export const CONSTRAINT_ID = "a0000000-0000-4000-8000-000000000013";
+export const SPONSOR_REQUIREMENT_ID = "a0000000-0000-4000-8000-000000000014";
 
 export function makeProject(overrides: Partial<Project> = {}): Project {
   const now = isoNow();
@@ -103,6 +107,40 @@ export function makeClaim(overrides: Partial<Claim> = {}): Claim {
     content: "Laptop C delivered the longest battery life in our test.",
     qualifiers: ["in our test"],
     created_at: isoNow(),
+    ...overrides,
+  };
+}
+
+export function makeConstraint(overrides: Partial<Constraint> = {}): Constraint {
+  const now = isoNow();
+  return {
+    id: CONSTRAINT_ID,
+    project_id: PROJECT_ID,
+    category: "TECHNICAL_NUANCE",
+    source: "MANUAL",
+    summary: "Preserve the test-specific qualifier in every numerical claim.",
+    details: "Do not state battery life as an absolute market claim.",
+    enabled: true,
+    created_at: now,
+    updated_at: now,
+    ...overrides,
+  };
+}
+
+export function makeSponsorRequirement(
+  overrides: Partial<SponsorRequirement> = {},
+): SponsorRequirement {
+  const now = isoNow();
+  return {
+    id: SPONSOR_REQUIREMENT_ID,
+    project_id: PROJECT_ID,
+    sponsor_name: "TechBrand",
+    requirement_type: "DISCOUNT_CODE",
+    value: "CODE20",
+    required: true,
+    enabled: true,
+    created_at: now,
+    updated_at: now,
     ...overrides,
   };
 }

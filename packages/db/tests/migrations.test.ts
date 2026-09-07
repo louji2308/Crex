@@ -18,6 +18,8 @@ const TABLE_NAMES = [
   "verification_findings",
   "workflow_state",
   "ai_outputs",
+  "constraints",
+  "sponsor_requirements",
 ];
 
 const MIGRATION_NAMES = listMigrations().map((file) => file.name);
@@ -118,6 +120,8 @@ describe("migrate", () => {
       "idx_verification_findings_component_id",
       "idx_workflow_state_project_id",
       "idx_ai_outputs_project",
+      "idx_constraints_project_id",
+      "idx_sponsor_requirements_project_id",
       "idx_source_assets_status",
     ];
     for (const index of expectedIndexes) {

@@ -1,0 +1,116 @@
+{
+  "name": "sponsor-video",
+  "description": "Sponsored content video with multiple sponsor requirements and constraints",
+  "source": {
+    "duration_seconds": 480,
+    "segments": [
+      {
+        "index": 0,
+        "start_time": 0,
+        "end_time": 10,
+        "text": "This video is sponsored by GameCorp. Thanks for supporting the channel!",
+        "speaker": "host"
+      },
+      {
+        "index": 1,
+        "start_time": 10,
+        "end_time": 30,
+        "text": "The new GameCorp Pro Mouse has 25,000 DPI and 1000Hz polling rate.",
+        "speaker": "host"
+      },
+      {
+        "index": 2,
+        "start_time": 30,
+        "end_time": 50,
+        "text": "It weighs only 63 grams and uses their new Hero 2 sensor.",
+        "speaker": "host"
+      },
+      {
+        "index": 3,
+        "start_time": 50,
+        "end_time": 65,
+        "text": "Get 15% off with code GAME15 at gamecorp.example/mouse. Link in description.",
+        "speaker": "host"
+      },
+      {
+        "index": 4,
+        "start_time": 65,
+        "end_time": 75,
+        "text": "Must mention sponsor within first 30 seconds. Do not claim it's the best mouse ever.",
+        "speaker": "host"
+      }
+    ]
+  },
+  "expected_claims": [
+    {
+      "type": "CLAIM",
+      "content": "The new GameCorp Pro Mouse has 25,000 DPI and 1000Hz polling rate",
+      "qualifiers": [],
+      "segment_index": 1
+    },
+    {
+      "type": "CLAIM",
+      "content": "It weighs only 63 grams and uses their new Hero 2 sensor",
+      "qualifiers": ["only"],
+      "segment_index": 2
+    },
+    {
+      "type": "RECOMMENDATION",
+      "content": "Get 15% off with code GAME15",
+      "qualifiers": [],
+      "segment_index": 3
+    }
+  ],
+  "expected_findings": [
+    {
+      "type": "SPONSOR_COMPLIANCE",
+      "severity": "BLOCK",
+      "trigger": "Missing sponsor disclosure 'This video is sponsored by GameCorp'"
+    },
+    {
+      "type": "SPONSOR_COMPLIANCE",
+      "severity": "BLOCK",
+      "trigger": "Missing discount code GAME15"
+    },
+    {
+      "type": "SPONSOR_COMPLIANCE",
+      "severity": "BLOCK",
+      "trigger": "Missing required URL gamecorp.example/mouse"
+    },
+    {
+      "type": "CREATOR_INTENT",
+      "severity": "REVIEW",
+      "trigger": "Generated claim uses 'best mouse ever' which violates must-not-claim"
+    }
+  ],
+  "sponsor_requirements": [
+    {
+      "type": "DISCLOSURE",
+      "value": "This video is sponsored by GameCorp",
+      "required": true,
+      "timing": "within first 30 seconds"
+    },
+    {
+      "type": "DISCOUNT_CODE",
+      "value": "GAME15",
+      "required": true
+    },
+    {
+      "type": "REQUIRED_URL",
+      "value": "gamecorp.example/mouse",
+      "required": true
+    },
+    {
+      "type": "MUST_NOT_CLAIM",
+      "value": "best mouse ever",
+      "required": true
+    }
+  ],
+  "creator_intent": [
+    {
+      "category": "ABSOLUTE_CLAIM_BAN",
+      "summary": "Do not use absolute superlatives without evidence",
+      "enabled": true
+    }
+  ]
+}
