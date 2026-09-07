@@ -2,7 +2,7 @@
 
 ## Current Status
 
-**Phase:** Wave 3 - Source Ingestion Pipeline (IMPLEMENTED + TESTED) / **Live D1 provisioning COMPLETE**
+**Phase:** Wave 3 - Source Ingestion Pipeline (COMPLETE + VERIFIED LIVE) / **Live D1 provisioning COMPLETE**
 **Date:** September 7, 2026
 **Hackathon Deadline:** September 8, 2026 - 8:00 AM ET
 
@@ -49,10 +49,29 @@
 
 ### Remaining
 
-- Runtime smoke + failure matrix on the local worker (Workers A/B).
-- Security review (filename/object-key handling, R2, size guards) final pass.
+- Runtime smoke + failure matrix: **DONE + VERIFIED this session** — `tests/runtime-matrix.test.ts` (A1-A8) + `tests/source-ingestion.test.ts` (8) all pass (17/17) on the miniflare worker harness.
+- Security review (filename/object-key handling, R2, size guards): **intentionally NOT produced** — lead decision this session: code-level regressions already covered by matrix A4-A6 + ingestion tests; no separate security-review artifact.
 - Live AI calls verified via OpenRouter fallback; live D1/R2/Worker deploy DONE (see Current Status). Next: pin an active NVIDIA model or make NVIDIA key provisioned/working; then Wave 4 video understanding.
 - Then Wave 4 planning (video understanding).
+
+### Wave 3 Acceptance Gate
+
+Status: **PASSED** (verified this session; no separate security-review artifact by lead decision).
+
+| Gate item | State | Evidence |
+|-----------|-------|----------|
+| Real source upload | PASSED | `apps/worker/tests/source-ingestion.test.ts` (8) + `runtime-matrix.test.ts` A1-A8; live e2e via deployed worker |
+| R2 source storage | PASSED | A1 `MEDIA.head` size match; R2 bucket `crex-media` live; live e2e blob written |
+| D1 SourceAsset persistence | PASSED | remote `source_assets` row read back READY (998 B, checksum match) via `wrangler d1 execute --remote` |
+| Media inspection | PASSED | A1 64x64 avc1 probe (duration, size, sha256) via `@crex/media` (29 tests) |
+| Validation | PASSED | A2 truncated -> INVALID + reason; MP4/ISO-BMFF scope documented |
+| Runtime smoke test | PASSED | A1-A8 + ingestion 17/17 green this session (miniflare harness) |
+| Failure matrix | PASSED | A2-A6: invalid media, oversized 413 + FAILED, filename hazards, storage-fail 502 + cleanup, db-fail 502 + cleanup |
+| Refresh/recovery | PASSED | A7: poll + list + D1 after workflow -> READY across fresh fetches |
+| Interrupted upload behavior | PASSED | A8: partial -> INVALID (never READY); never-uploaded stays UPLOADING |
+| Security review artifact | DEFERRED | Lead decision: not produced; code-level regressions A4-A6 + ingestion tests cover filename/cleanup; auth + rate-limiting out of scope (prototype) |
+| README alignment | PASSED | README updated this session (NVIDIA->OpenRouter labels) |
+| progress.md alignment | PASSED | Updated this session |
 
 ## Repository State
 
@@ -84,8 +103,8 @@ Implementation Plan: DEFINED
 | Tests | TESTED | Monorepo green: all typechecks pass; all recursive tests pass (media/schemas/core/db/ai/infra/worker/tests/web) |
 | Configuration | COMPLETE | pnpm workspace, tsconfig.base, package configs |
 | Database | COMPLETE | D1-compatible schema + migrations (0001-0004) + adapters (+ ai_outputs, source_uploads) |
-| AI Providers | IMPLEMENTED | @crex/ai NVIDIA + Mistral fallback (36 tests) |
-| Worker AI Pipeline | IMPLEMENTED | `/ai/analyze` â†’ real provider â†’ validate â†’ persist AiOutput (tested w/ stubbed fetch) |
+| AI Providers | IMPLEMENTED | @crex/ai NVIDIA (primary) + OpenRouter (fallback); Mistral legacy (36 tests) |
+| Worker AI Pipeline | IMPLEMENTED | `/ai/analyze` â†’ real provider â†’ validate â†’ persist AiOutput (tested w/ stubbed fetch; **live-verified via OpenRouter fallback**) |
 | Source Upload Pipeline | IMPLEMENTED | `/sources` API + R2 streaming + media validation + UI (8 source-ingestion tests) |
 | Media Inspection | IMPLEMENTED | `@crex/media`: incremental SHA-256 + MP4 probe + validation + fixtures (29 tests) |
 | Source Ingestion Workflow | IMPLEMENTED | `source-to-release` re-verifies R2 size + streamed SHA-256 -> VALID -> PROCESSING -> READY |
@@ -125,7 +144,7 @@ The approved architecture is:
 - **Object Storage:** Cloudflare R2
 - **Background Processing:** Cloudflare Workflows
 - **AI (Primary):** NVIDIA (`NVIDIA_API_KEY`)
-- **AI (Fallback):** Mistral (`MISTRAL_API_KEY`)
+- **AI (Fallback):** OpenRouter (`OPENROUTER_API_KEY`); Mistral retained as a legacy provider
 - **Vector Search:** Cloudflare Vectorize + LanceDB (local)
 - **Media Processing:** FFmpeg
 - **Speech Fallback:** WhisperX/faster-whisper
@@ -189,9 +208,9 @@ The approved architecture is:
 
 | Task | Owner | Status |
 |------|-------|--------|
-| Worker C L1-L4 (Wave 2) | Lead | IMPLEMENTED + TESTED; remaining Wave 2 = D1 real provisioning + live AI test + deploy (credentials) |
-| Wave 3 source ingestion | Lead | IMPLEMENTED + TESTED; final review (runtime smoke + failure matrix + security + docs) in progress |
-| Wave 6/7 constraint & sponsor contracts | Lead | IMPLEMENTED + TESTED; migrations 0005/0006, repos, tests green |
+| Worker C L1-L4 (Wave 2) | Lead | COMPLETE + DEPLOYED; live D1 migrated, worker deployed, `/health` 200 (db/r2/workflow true). Live AI via OpenRouter fallback (NVIDIA EOL, Mistral tier-blocked — see Known Issues 5) |
+| Wave 3 source ingestion | Lead | COMPLETE + VERIFIED; runtime matrix A1-A8 + ingestion 17/17 pass; live e2e verified; acceptance gate documented below; security artifact deferred by lead decision |
+| Wave 6/7 constraint & sponsor contracts | Lead | COMPLETE; migrations 0005/0006, repos, tests green |
 
 ---
 
@@ -203,21 +222,21 @@ None currently.
 
 ## Next
 
-### Wave 2 â€” Real Infrastructure Foundation (IN PROGRESS)
+### Wave 2 â€” Real Infrastructure Foundation (COMPLETE + DEPLOYED)
 
 Worker C completed:
-- L1: worker-bindings env config final (`wrangler.jsonc` AI `vars`, `.dev.vars.example`, `migrations_dir`; `database_id` still placeholder for real deploy).
+- L1: worker-bindings env config final (`wrangler.jsonc` AI `vars`, `.dev.vars.example`, `migrations_dir`).
 - L2: infra boundary (shared workflow-status mapper; D1/R2 behind `@crex/infra`; `@crex/ai` workerd-safe deep imports).
 - L3: error model aligned to ApiError/CrexError (`src/http.ts`; workflow FAILED persists error; fetch handler normalized).
 - L4: AiOutput â†” ProviderResult â†” WorkflowState alignment (migration + repo + worker module + `/ai/analyze` route; configured path tested end-to-end with stubbed fetch).
 
 Remaining in Wave 2:
-- Provision real D1 (`database_id`) + live AI keys + R2 bucket credentials, then `wrangler deploy` + live `wrangler d1 migrations apply` (credential-blocked; local `wrangler dev` covers the full path).
-- Live AI smoke test against real NVIDIA/Mistral once keys are available.
+- DONE: real D1 provisioned (`b01526fc-40b4-4024-8616-b2fb6099d94d`), R2 `crex-media` created, worker deployed live, remote migrations 0001-0006 applied, `/health` 200, live AI verified via OpenRouter fallback.
+- Remaining (decision required): pin an active NVIDIA model (current primary is EOL) or accept OpenRouter + Mistral as the effective live fallback chain.
 
 Wave 3 finalization (this pass):
-- Source ingestion committed (`1c9b3e0`, `58666c1`) + pushed; 471 tests green; README.md + progress.md aligned.
-- Runtime smoke + failure matrix + security review final passes by Workers A/B; then lead pushes.
+- DONE: runtime matrix A1-A8 + source-ingestion 17/17 pass (Workers A/B verified this session); acceptance gate documented below; README.md + progress.md aligned (NVIDIA->OpenRouter).
+- Decided: no separate security-review artifact (lead decision; code-level regressions covered by A4-A6 + ingestion tests).
 
 Then Wave 4: video understanding (planning).
 
@@ -230,6 +249,7 @@ Then Wave 4: video understanding (planning).
 5. ~~No NVIDIA/Mistral keys, live AI untested~~ RESOLVED: NVIDIA + OpenRouter secrets set on deployed worker; live `/ai/analyze` verified via OpenRouter fallback. Remaining caveat: NVIDIA primary model is EOL, so live calls fall back to OpenRouter; Mistral model tier-blocked on the available key.
 6. INVALID validation reason is not persisted on the source row (returned in API + UI only) - documented limitation.
 7. RESOLVED (this session): `apps/web` scaffold typecheck TS2345 in `ProjectForm.tsx` fixed (platform typing + audience null-safety) and `apps/web` `vitest run` no-tests now exits 0 (`passWithNoTests`). Also fixed a flaky `packages/db` timestamp race in `repositories.test.ts` (frozen fixture timestamps vs insert-time `toISOString()`).
+8. Wave 3 security-review artifact intentionally NOT produced (lead decision this session): code-level security regressions for the upload path are covered by runtime-matrix A4-A6 + source-ingestion tests; upload routes remain no-auth/no-rate-limit (prototype scope, documented limitation).
 
 ---
 
@@ -262,6 +282,9 @@ Then Wave 4: video understanding (planning).
 | Worker builds AI options locally | Sep 7 | `@crex/core/config` imports `node:fs`/`node:path` â†’ unusable in workerd; `apps/worker/src/workflows/ai-output.ts` mirrors the default env-var names/values and reads through `Env` |
 | `@crex/ai` errors deep-import | Sep 7 | `packages/ai/src/errors.ts` now imports `@crex/core/src/errors` instead of the `@crex/core` index so `@crex/ai` bundles under workerd (index â†’ `config.ts` â†’ `node:fs`) |
 | `migrations_dir` in wrangler.jsonc | Sep 7 | `wrangler d1 migrations apply crex --local` verified against the shared `packages/db/migrations` dir |
+| Add OpenRouter provider as the live fallback | Sep 7 | NVIDIA primary model EOL (410), Mistral tier-blocked (403) on provisioned keys; OpenRouter verified live and `19eb3da` committed. Fallback chain NVIDIA -> OpenRouter. |
+| Wave 3 security-review artifact not produced | Sep 7 | Lead decision: upload-path security regressions already covered (matrix A4-A6 + source-ingestion tests); no standalone threat-model doc needed for the gate. |
+| Wave 3 acceptance gate = PASSED | Sep 7 | Runtime matrix A1-A8 + source-ingestion 17/17 green + live deploy evidence; gate table recorded in this file. |
 
 ---
 
@@ -284,12 +307,14 @@ Run: `pnpm -r typecheck` (all pass) / `pnpm -r test` (all pass; verified 4 conse
 
 ## Deployment Status
 
-**IN PROGRESS.** `apps/worker` bindings configured (D1 `crex`, R2 `crex-media`, Workflows `crex-source-to-release`, AI `vars`).
-- `wrangler deploy --dry-run` passes â€” 178 KiB bundle / 32.6 KiB gzip.
-- `wrangler dev` smoke: `/health` all bindings active; `POST /workflows/source-to-release` created + ran a real instance (phase RUNNINGâ†’â€¦); `POST /ai/analyze` returns 503 `AI_NOT_CONFIGURED` without keys; local D1 migrated via `wrangler d1 migrations apply crex --local` (0001 - 0004).
-- `wrangler dev` boots locally; `/health` returns all bindings active.
-- D1 `database_id` is a placeholder until a real D1 database is provisioned - real `wrangler deploy` + `wrangler d1 migrations apply` pending credentials (non-blocking for local verification).
-- Wave 3 upload pipeline is not deployed live; miniflare covers upload -> validation -> workflow ingestion (66 worker tests, incl. 8 source-ingestion).
+**LIVE + VERIFIED.** `apps/worker` deployed with bindings (D1 `crex`, R2 `crex-media`, Workflows `crex-source-to-release`, AI `vars`).
+- Deployed URL: https://crex-worker.loujanb2008.workers.dev — live `/health` returns 200 `{ok:true, bindings:{db:true, r2:true, workflow:true}}` (re-verified this session).
+- Active deployment: version `1afc0f7f-b7ca-4791-a8be-40460075d9f3` (OpenRouter build) at 100%.
+- Live worker secrets: `NVIDIA_API_KEY`, `MISTRAL_API_KEY`, `OPENROUTER_API_KEY` (via `wrangler secret list`).
+- Remote D1 `crex` (`b01526fc-40b4-4024-8616-b2fb6099d94d`): migrations 0001-0006 applied (`d1_migrations` verified), 15 app tables present.
+- R2 `crex-media` bucket exists; live e2e uploaded a blob and the source ingested to READY (remote `source_assets` row read back READY, 998 B, checksum match).
+- Live AI verified: `/ai/analyze` -> NVIDIA EOL -> OpenRouter fallback -> HTTP 201; `ai_outputs` row (provider openrouter, fallback_used 1) persisted to remote D1.
+- Local tooling still works: `wrangler deploy --dry-run` passes; `wrangler dev` boots with `/health` all bindings active.
 - Decision: `decision-workflow-migrations.md` â€” migrations run wrangler-side, not in-app.
 
 ---
@@ -329,8 +354,8 @@ Deferred (registry-documented only, no code):
 |------|------|--------|
 | W0 | Repository Discovery + Contract Freeze | **COMPLETED** |
 | W1 | Shared Contracts + Project Foundation | **COMPLETED** â€” `c305fe4` committed & pushed |
-| W2 | Real Infrastructure Foundation | IN PROGRESS - infra + AI + worker shell + worker L1-L4 committed; D1 provisioning + live AI test + deploy remaining (credentials) |
-| W3 | Source Ingestion Pipeline | TESTED - committed & pushed (`1c9b3e0`, `58666c1`); runtime smoke + failure matrix + security review in progress |
+| W2 | Real Infrastructure Foundation | **COMPLETED** — infra + AI + worker shell + worker L1-L4; D1 provisioned + remote migrations applied + worker deployed live + live AI via OpenRouter fallback |
+| W3 | Source Ingestion Pipeline | **COMPLETE + VERIFIED** — committed & pushed (`1c9b3e0`, `58666c1`); runtime matrix A1-A8 + ingestion 17/17 pass; live e2e READY on deployed worker; acceptance gate documented; security artifact deferred by lead decision |
 | W4 | Video Understanding | NOT STARTED |
 | W5 | Evidence Graph | NOT STARTED |
 | W6 | Creator Intent Contract | **COMPLETED** — `Constraint` + `SponsorRequirement` contracts, migrations 0005/0006, repositories, tests |

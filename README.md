@@ -4,12 +4,12 @@
 
 ## Current Status
 
-**Phase:** Wave 3 — Source Ingestion Pipeline (IMPLEMENTED + TESTED) + **Live D1 provisioning COMPLETE**
+**Phase:** Wave 3 — Source Ingestion Pipeline (COMPLETE + VERIFIED LIVE) + **Live D1 provisioning COMPLETE**
 **Date:** September 7, 2026
 
-The pnpm monorepo foundation is complete: **17 frozen contract schemas** (`@crex/schemas`), a D1-compatible SQLite data layer (`@crex/db`), core foundation utilities (`@crex/core`), NVIDIA→Mistral AI adapter with fallback (`@crex/ai`), D1/R2 infrastructure adapters (`@crex/infra`), a media inspection package (`@crex/media`), and a real Cloudflare Worker (**`apps/worker`**) with D1/R2/Workflows bindings.
+The pnpm monorepo foundation is complete: **17 frozen contract schemas** (`@crex/schemas`), a D1-compatible SQLite data layer (`@crex/db`), core foundation utilities (`@crex/core`), NVIDIA→OpenRouter AI adapter with fallback (`@crex/ai`), D1/R2 infrastructure adapters (`@crex/infra`), a media inspection package (`@crex/media`), and a real Cloudflare Worker (**`apps/worker`**) with D1/R2/Workflows bindings.
 
-Wave 3 implements the **source ingestion pipeline**: upload → R2 → D1 → media validation → `SourceAsset` → workflow ingestion → `READY`, plus a minimal upload UI. Wave 2's infra/AI groundwork remains in place: `GET /health`, and `POST /ai/analyze` running the `SEMANTIC_UNDERSTANDING` task through NVIDIA→Mistral with schema validation and `AiOutput` persistence. The live D1 database and R2 are provisioned and the Worker is **deployed live**; **482 tests passing** across 8 packages, worker typecheck green.
+Wave 3 implements the **source ingestion pipeline**: upload → R2 → D1 → media validation → `SourceAsset` → workflow ingestion → `READY`, plus a minimal upload UI. Wave 2's infra/AI groundwork remains in place: `GET /health`, and `POST /ai/analyze` running the `SEMANTIC_UNDERSTANDING` task through NVIDIA→OpenRouter with schema validation and `AiOutput` persistence. The live D1 database and R2 are provisioned and the Worker is **deployed live**; **482 tests passing** across 8 packages, worker typecheck green.
 
 ---
 
@@ -73,7 +73,7 @@ Crex/
 │   ├── schemas/              # Frozen contract schemas (17), types, registry
 │   ├── db/                   # D1-compatible SQLite: migrations + data-access
 │   ├── core/                 # Config/env loader, ApiError, logger, workflow state
-│   ├── ai/                   # NVIDIA (primary) + Mistral (fallback) adapters
+│   ├── ai/                   # NVIDIA (primary) + OpenRouter (fallback); Mistral legacy
 │   ├── infra/                # D1/R2 adapters over the @crex/db seam
 │   ├── media/                # MP4 probe, media validation, incremental SHA-256, fixtures
 │   └── tests/                # Fixtures, contract conformance, db integration
@@ -130,7 +130,7 @@ POST /workflows/source-to-release    {projectId, sourceId} → SourceToReleaseWo
 - **D1:** production database `crex` (`database_id b01526fc-40b4-4024-8616-b2fb6099d94d`) in `apps/worker/wrangler.jsonc`; migrations `0001`–`0006` applied remotely via `npx wrangler d1 migrations apply crex --remote`; 15 app tables + `d1_migrations` verified.
 - **R2:** bucket `crex-media` created, bound as `MEDIA`.
 - **Worker:** deployed to <code>https://crex-worker.loujanb2008.workers.dev</code> (bindings `DB`, `MEDIA`, `SOURCE_TO_RELEASE`, AI `vars`).
-- **Verified:** a live upload → `POST /sources` 201 → `PUT /sources/:id/blob` 200 `VALID` (real R2 write + D1 insert) → poll `VALID` → `POST /workflows/source-to-release` → source `READY`; the remote `source_assets` row was read back as `READY` (998 B, checksum match) directly from D1.
+- **Verified:** a live upload → `POST /sources` 201 → `PUT /sources/:id/blob` 200 `VALID` (real R2 write + D1 insert) → poll `VALID` → `POST /workflows/source-to-release` → source `READY`; the remote `source_assets` row was read back as `READY` (998 B, checksum match) directly from D1. Re-confirmed live this session: `/health` 200 with db/r2/workflow true, active deployment `1afc0f7f` at 100%.
 
 ## Development Setup
 
