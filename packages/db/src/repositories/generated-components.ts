@@ -35,4 +35,11 @@ export class GeneratedComponentRepository {
       JSON_FIELDS,
     );
   }
+
+  async updateContent(componentId: string, content: string): Promise<GeneratedComponent | undefined> {
+    await this.db
+      .prepare(`UPDATE ${TABLE} SET content = ?, verification_status = 'REVIEW' WHERE component_id = ?`)
+      .run(content, componentId);
+    return this.get(componentId);
+  }
 }

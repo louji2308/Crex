@@ -20,7 +20,7 @@
 - Live proof through the deployed worker: seed project -> POST /sources 201 -> PUT blob 200 VALID (real R2 + D1 insert) -> poll VALID -> POST /workflows/source-to-release -> source READY ~2s; remote D1 `source_assets` row read back READY (998 B, checksum match).
 - Live AI proof: POST /ai/analyze -> NVIDIA EOL -> OpenRouter fallback -> HTTP 201; `AiOutput` persisted to remote D1 `ai_outputs` (provider openrouter, fallback_used 1).
 
-**Integration status:** Wave 3 + Wave 6/7 committed and pushed. OpenRouter provider live (NVIDIA -> OpenRouter) committed and pushed (`19eb3da`). **Wave 13 provenance foundation COMPLETE + TESTED; Wave 14 audience IMPLEMENTED + TESTED.** **Monorepo green**: `pnpm -r typecheck` all pass (11/11); `pnpm -r test` all pass (583 tests across 10 test-running workspaces). The pre-existing `apps/web` scaffold typecheck error from `45c3de2` is FIXED (ProjectForm TS2345), and `apps/web` `vitest run` now exits 0 via `passWithNoTests`. A flaky `packages/db` timestamp race in `repositories.test.ts` was root-caused (frozen fixture timestamps vs insert-time `toISOString()`) and fixed. The `packages/db` `understandings.ts` TS2322 (sibling Wave 4 file, `this.get(id)!` inside async fn) was fixed and typecheck is fully green. The Wave 13 frozen-registry count mismatch in `@crex/tests` was resolved: `FROZEN_NAMES`/conformance `CASES` now include `ProvenanceRecord`; `@crex/tests` is 106/106. `packages/infra` `d1.test.ts` `TABLE_NAMES` updated for the sibling-added tables (transcripts, semantic_sections, understandings, provenance_records, audience_*); infra 37/37.
+**Integration status:** Wave 3 + Wave 6/7 committed and pushed. OpenRouter provider live (NVIDIA -> OpenRouter) committed and pushed (`19eb3da`). **Wave 13 provenance foundation COMPLETE + TESTED; Wave 14 audience IMPLEMENTED + TESTED.** **Monorepo green**: `pnpm -r typecheck` all pass (11/11); `pnpm -r test` all pass (651 tests across 10 test-running workspaces). The pre-existing `apps/web` scaffold typecheck error from `45c3de2` is FIXED (ProjectForm TS2345), and `apps/web` `vitest run` now exits 0 via `passWithNoTests`. A flaky `packages/db` timestamp race in `repositories.test.ts` was root-caused (frozen fixture timestamps vs insert-time `toISOString()`) and fixed. The `packages/db` `understandings.ts` TS2322 (sibling Wave 4 file, `this.get(id)!` inside async fn) was fixed and typecheck is fully green. The Wave 13 frozen-registry count mismatch in `@crex/tests` was resolved: `FROZEN_NAMES`/conformance `CASES` now include `ProvenanceRecord`; `@crex/tests` is 106/106. `packages/infra` `d1.test.ts` `TABLE_NAMES` updated for the sibling-added tables (transcripts, semantic_sections, understandings, provenance_records, audience_*); infra 37/37.
 
 ---
 
@@ -328,20 +328,23 @@ Then Wave 4: video understanding (planning).
 | `packages/infra` `d1.test.ts` table list updated | Sep 7 | Actual D1 now has 23 tables after sibling migrations (transcripts, semantic_sections, understandings, provenance_records, audience_*); `TABLE_NAMES` expanded from 15 to 23 entries so the infra test asserts the real schema. |
 | Wave 13 honest C2PA limitation | Sep 7 | `pip install c2pa` fails on this machine (`py3exiv2` needs MSVC 14.0 Build Tools). Records persist `signing_status: UNSIGNED` bound to real R2 SHA-256; signed embed/verify gated behind `invokePythonCli` and tests skip with explicit reason — never faked. |
 | Wave 13 internal-vs-external provenance kept separate | Sep 7 | Internal `ProvenanceRecord` (D1) and external C2PA media provenance (`@crex/c2pa`) remain distinct layers per `Architecture & Techstack.md` §16-17; verify always re-reads real R2 bytes before deciding. |
+| W10 deterministic repair engine | Sep 7 | Deterministic-first rule enforced: `runRepair` proposes targeted `RepairAction` rows via four deterministic strategies (SPONSOR_COMPLIANCE append, PLATFORM_QA truncation, CONTEXT_REMOVAL qualifier prefix, NUMERICAL_DRIFT positional token replacement). No AI is invoked; each repair traces to a specific finding + asset/component. Migration `0012_repair.sql` with `repair_actions` table, JSON-array columns for `source_references`/`constraint_references`. |
+| W11 re-verification via real re-run | Sep 7 | `POST /reverify` applies all `PROPOSED` `RepairAction` rows for the resolved run, then delegates to the real `runVerification` engine — never trusts the repair state alone. A pass-through scenario with no PROPOSED actions is honest state (appliedActionCount: 0), not an error. |
+| W10 target-map merge strategy | Sep 7 | Multiple findings on the same component are merged via a key map (`__asset_title__` for title, component_id otherwise) to avoid overwrite: later transforms operate on the already-patched text of earlier ones, stacking sponsor phrases and multiple qualifier prefixes correctly. |
 
 ---
 
 ## Test Status
 
-**Monorepo tests all pass** (583 total) across 10 test-running workspaces:
+**Monorepo tests all pass** (651 total) across 10 test-running workspaces:
 - `@crex/schemas` - 154 (schema strictness, in/out conventions, JSON round-trip, api/domain, ai-tasks, audience contracts)
 - `@crex/tests` — 106 (contract conformance incl. `ProvenanceRecord`, cross-package db integration)
 - `@crex/audience` - 12 (deterministic aggregation, insights, recommendations)
-- `@crex/db` - 66 (adapter, migrations, repos incl. ai_outputs/source_assets/source_uploads/constraints/sponsor_requirements/audience_*/provenance_records; real `node:sqlite` in-memory)
-- `@crex/infra` — 37 (D1/R2 adapters on miniflare/workerd emulation; table list covers all 23 tables)
+- `@crex/db` - 66 (adapter, migrations, repos incl. ai_outputs/source_assets/source_uploads/constraints/sponsor_requirements/audience_*/provenance_records/repair_actions; real `node:sqlite` in-memory)
+- `@crex/infra` — 37 (D1/R2 adapters on miniflare/workerd emulation; table list covers all 24 tables)
 - `@crex/ai` — 36 (NVIDIA/Mistral/OpenRouter clients, fallback, validation)
 - `@crex/core` — 18 (config, API envelopes, workflow transitions, errors)
-- `apps/worker` - 103 (HTTP routes, error model, ai-output module, sources routes + UI, source-ingestion 8 tests incl. workflow-to-READY, `/ai/analyze` via stubbed fetch, wired-task gating, NVIDIA->OpenRouter fallback, audience API routes, provenance routes 14, video-understanding routes)
+- `apps/worker` - 171 (HTTP routes, error model, ai-output module, sources routes + UI, source-ingestion 8 tests incl. workflow-to-READY, `/ai/analyze` via stubbed fetch, wired-task gating, NVIDIA->OpenRouter fallback, audience API routes, provenance routes 14, video-understanding routes, repair + re-verification 9 tests)
 - `@crex/media` - 29 (incremental SHA-256, MP4 probe, validation, fixtures)
 - `@crex/c2pa` - 22 (manifest build, 5-state verify, python CLI invoke, gated integration)
 - `apps/web` - 0 (no tests written yet; `vitest run` exits 0 via `passWithNoTests`)
@@ -415,8 +418,8 @@ Wave 14 audience contracts (defined in `packages/schemas/src/audience.ts`, deep-
 | W7 | Sponsor Contract | **COMPLETED** — SponsorRequirement contract, migration 0006, repository, integration tests |
 | W8 | Content Generation Engine | NOT STARTED |
 | W9 | Independent Verification Engine | NOT STARTED |
-| W10 | Repair Engine | NOT STARTED |
-| W11 | Re-Verification | NOT STARTED |
+| W10 | Repair Engine | **IMPLEMENTED + TESTED** — Deterministic repair pipeline (`repair.ts`): SPONSOR_COMPLIANCE append, PLATFORM_QA truncation, CONTEXT_REMOVAL qualifier prefix, NUMERICAL_DRIFT positional token replacement. `RepairActionRepository` + migration `0012_repair.sql`. `POST /repair`, `POST /repair/:actionId/apply`, `GET /repair/actions`. 9 new tests (sponsor/title/numerical/scope-drift/no-repairs-honest/errors) — worker suite 171 total |
+| W11 | Re-Verification | **IMPLEMENTED + TESTED** — `POST /reverify` applies all PROPOSED actions for the resolved run then re-runs the real independent verifier. `packages/infra` d1.test.ts TABLE_NAMES updated. Part of W10 implementation (same branch) |
 | W12 | Release Passport | NOT STARTED |
 | W13 | Provenance Metadata | **COMPLETE + TESTED + DEPLOYED** — `ProvenanceRecord` frozen (18th contract), migration `0010_provenance.sql`, `ProvenanceRepository` (12 tests), `@crex/c2pa` package (22 tests), worker `/provenance/*` routes (14 tests); real R2 bytes hashed, honest `UNSIGNED` state; migration applied remotely + worker deployed (`1c6e716`, version `9e85ac61`); c2pa Python SDK NOT installable on this machine (py3exiv2 needs MSVC 14.0) |
 | W14 | Audience Context + Learning | **IMPLEMENTED + TESTED** — `@crex/audience` package (deterministic aggregation/insights/recommendations) + `packages/schemas/src/audience.ts` contracts + migration `0011_audience.sql` + 4 audience repositories + worker `/audience/*` API routes (profiles, observations, compute, context). Schemas 154, audience 12, db 66, worker 103 tests green |

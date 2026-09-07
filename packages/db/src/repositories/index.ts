@@ -9,6 +9,8 @@ export { GeneratedAssetRepository } from "./generated-assets";
 export { GeneratedComponentRepository } from "./generated-components";
 export { VerificationRunRepository } from "./verification-runs";
 export { VerificationFindingRepository } from "./verification-findings";
+export { RepairActionRepository } from "./repair-actions";
+export type { RepairActionStatus } from "./repair-actions";
 export { WorkflowStateRepository } from "./workflow-state";
 export { AiOutputRepository } from "./ai-outputs";
 export { ConstraintRepository } from "./constraints";
