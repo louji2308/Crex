@@ -27,6 +27,7 @@ import { createUnderstandingApi } from "./understand-routes";
 import { createEvidenceGraphApi } from "./evidence-graph-routes";
 import { createVerificationApi } from "./verification-routes";
 import { createGenerationApi } from "./generation-routes";
+import { createPassportApi } from "./passport-routes";
 import { errorResponse, errorResponseForCode } from "./http";
 import { IncrementalSha256 } from "@crex/media";
 
@@ -393,6 +394,10 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
   const generationApi = createGenerationApi(env);
   const generationResponse = await generationApi.handle(request, path);
   if (generationResponse !== null) return generationResponse;
+
+  const passportApi = createPassportApi(env);
+  const passportResponse = await passportApi.handle(request, path);
+  if (passportResponse !== null) return passportResponse;
 
   return errorResponseForCode("NOT_FOUND", "route not found");
 }
