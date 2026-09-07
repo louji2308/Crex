@@ -22,6 +22,14 @@
 
 **Integration status:** Wave 3 + Wave 6/7 committed and pushed. OpenRouter provider live (NVIDIA -> OpenRouter) committed and pushed (`19eb3da`). **Wave 13 provenance foundation COMPLETE + TESTED; Wave 14 audience IMPLEMENTED + TESTED.** **Monorepo green**: `pnpm -r typecheck` all pass (11/11); `pnpm -r test` all pass (583 tests across 10 test-running workspaces). The pre-existing `apps/web` scaffold typecheck error from `45c3de2` is FIXED (ProjectForm TS2345), and `apps/web` `vitest run` now exits 0 via `passWithNoTests`. A flaky `packages/db` timestamp race in `repositories.test.ts` was root-caused (frozen fixture timestamps vs insert-time `toISOString()`) and fixed. The `packages/db` `understandings.ts` TS2322 (sibling Wave 4 file, `this.get(id)!` inside async fn) was fixed and typecheck is fully green. The Wave 13 frozen-registry count mismatch in `@crex/tests` was resolved: `FROZEN_NAMES`/conformance `CASES` now include `ProvenanceRecord`; `@crex/tests` is 106/106. `packages/infra` `d1.test.ts` `TABLE_NAMES` updated for the sibling-added tables (transcripts, semantic_sections, understandings, provenance_records, audience_*); infra 37/37.
 
+**W17 Security + Reliability (COMPLETE on `agent/w17/security`, NOT merged):**
+- Audit of the 17 security areas complete; findings fixed with minimal defense; no auth/rate-limit built (prototype scope, documented residual risks).
+- Fixes: `transitionPhase` now rejects transitions out of terminal phases (`COMPLETED`/`FAILED`/`CANCELLED`) with `INVALID_WORKFLOW_TRANSITION`; non-`CrexError` server errors are redacted to generic `INTERNAL_ERROR`; upload failures are redacted to `STORAGE_UPLOAD_FAILED`/`"upload failed"` (raw detail only in server logs); content-length mismatch in BOTH directions → `413 SOURCE_TOO_LARGE`; workflow status GET requires a canonical UUID (`INVALID_WORKFLOW_ID`); verification runs are now scoped per project at the SQL layer via `VerificationRunRepository.listByProject`.
+- Regression + adversarial tests added: `apps/worker/tests/security.test.ts` (workflow-id validation, source-list + verification-list project scoping, cross-project provenance rejection), `http.test.ts` (no-leak), `source-ingestion.test.ts` (short-body 413, redacted upload failure), `packages/db/tests/repositories.test.ts` (`listByProject`), `packages/core/tests/workflow.test.ts` (terminal-phase immutability).
+- Validation: `packages/core` 20/20, `packages/db` 66/66, `apps/worker` 169/169, `pnpm -r typecheck` 11/11 green. Full `pnpm -r test` remains gated by the pre-existing `@crex/c2pa` env-drift failures (W18's scope).
+- Threat model documented at `docs/security/threat-model.md` (assets, trust boundaries, risk register, controls, residual risks).
+- Because Workflows re-runs the body when an already-completed instance id is re-created in the test harness, `index.integration.test.ts` was updated to use a fresh instance id (`WORKFLOW3_UUID`) for the distinct second run — matching the prod contract that a finished instance is never re-run.
+
 ---
 
 
@@ -422,7 +430,7 @@ Wave 14 audience contracts (defined in `packages/schemas/src/audience.ts`, deep-
 | W14 | Audience Context + Learning | **IMPLEMENTED + TESTED** — `@crex/audience` package (deterministic aggregation/insights/recommendations) + `packages/schemas/src/audience.ts` contracts + migration `0011_audience.sql` + 4 audience repositories + worker `/audience/*` API routes (profiles, observations, compute, context). Schemas 154, audience 12, db 66, worker 103 tests green |
 | W15 | End-to-End Integration | NOT STARTED |
 | W16 | Adversarial Benchmark | COMPLETE (29/33 passing; 4 pre-existing failures in timing/semantic drift) |
-| W17 | Security + Reliability | NOT STARTED |
+| W17 | Security + Reliability | **COMPLETE on `agent/w17/security` (not merged)** — audit, fixes (terminal-phase guard, error redaction, content-length 413 both directions, workflow GET UUID validation, SQL-scoped verification listing), regression tests, `docs/security/threat-model.md` |
 | W18 | Full Automated Testing | NOT STARTED |
 | W19 | Deployment | NOT STARTED |
 | W20 | Judge-Path Hardening | NOT STARTED |
