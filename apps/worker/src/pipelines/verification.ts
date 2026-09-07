@@ -104,6 +104,8 @@ export async function runVerification(
 
   const findings: VerificationFinding[] = [];
 
+  const seenPlatformTypes = new Set<string>();
+
   for (const component of components) {
     const componentFindings = runChecksForComponent(
       { uuid, now },
@@ -114,6 +116,7 @@ export async function runVerification(
       constraints,
       sponsorRequirements,
       runId,
+      seenPlatformTypes,
     );
     findings.push(...componentFindings);
   }
@@ -164,6 +167,7 @@ function runChecksForComponent(
   constraints: Constraint[],
   sponsorRequirements: SponsorRequirement[],
   runId: string,
+  seenPlatformTypes: Set<string>,
 ): VerificationFinding[] {
   const findings: VerificationFinding[] = [];
   const { uuid, now } = deps;
@@ -317,7 +321,8 @@ function runChecksForComponent(
   }
 
   const platformLimit = PLATFORM_LIMITS[asset.asset_type];
-  if (platformLimit !== undefined) {
+  if (platformLimit !== undefined && !seenPlatformTypes.has(asset.asset_type)) {
+    seenPlatformTypes.add(asset.asset_type);
     if (platformLimit.title !== undefined && asset.title.length > platformLimit.title) {
       findings.push({
         id: uuid(),
@@ -353,15 +358,34 @@ function runChecksForComponent(
   return findings;
 }
 
+const SUFFIX_MULTIPLIERS: Record<string, number> = {
+  k: 1_000,
+  K: 1_000,
+  m: 1_000_000,
+  M: 1_000_000,
+  "%": 0.01,
+};
+
 /**
- * Extracts numeric values from text, including optional signs, decimals, percentages, currency symbols, and magnitude suffixes.
+ * Extracts numeric values from text, including optional signs, decimals, percentages, currency symbols, and magnitude suffixes (k, K, m, M).
  *
  * @param text - The text to scan for numeric values
  * @returns The numeric values found in `text`
  */
 function extractNumbers(text: string): number[] {
-  const matches = text.match(/-?\d+(?:\.\d+)?(?:[%$kKmM])?/g) ?? [];
-  return matches.map((m) => parseFloat(m.replace(/[$,]/g, ""))).filter((n) => !Number.isNaN(n));
+  const matches = text.match(/-?\d[\d,]*(?:\.\d+)?(?:[%$kKmM])?/g) ?? [];
+  return matches
+    .map((m) => {
+      const cleaned = m.replace(/,/g, "");
+      const suffix = cleaned[cleaned.length - 1];
+      if (suffix !== undefined && suffix in SUFFIX_MULTIPLIERS) {
+        const num = parseFloat(cleaned.slice(0, -1));
+        if (Number.isNaN(num)) return NaN;
+        return num * SUFFIX_MULTIPLIERS[suffix];
+      }
+      return parseFloat(cleaned);
+    })
+    .filter((n) => !Number.isNaN(n));
 }
 
 /**
