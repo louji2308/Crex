@@ -3,9 +3,9 @@
 ## Current Status
 
 **Phase:** Wave 0 COMPLETE → Wave 1 NEXT
-**Date:** September 6, 2026
+**Date:** September 7, 2026
 **Hackathon Deadline:** September 8, 2026 — 8:00 AM ET
-**Time Remaining:** ~47 hours
+**Time Remaining:** ~25.8 hours
 
 ---
 
@@ -13,7 +13,7 @@
 
 ```text
 Branch: main
-Commits: 3
+Commits: 4
 Source Code: NONE (greenfield)
 Specification: COMPLETE
 Architecture: DEFINED
@@ -35,10 +35,10 @@ Implementation Plan: DEFINED
 | docs/implementation/spec-audit.md | COMPLETE | Worker A deliverable |
 | docs/implementation/repository-audit.md | COMPLETE | Worker B deliverable |
 | docs/implementation/risk-register.md | COMPLETE | Worker C deliverable |
-| Source Code | NOT STARTED | No application code exists |
-| Tests | NOT STARTED | No test infrastructure exists |
-| Configuration | NOT STARTED | No package.json, wrangler.toml, etc. |
-| Database | NOT STARTED | No D1 schema or migrations |
+| Source Code | IN PROGRESS | Wave 1 avoids `apps/`/`worker/` white label; owns contracts + core instead |
+| Tests | IN PROGRESS | Wave 1 Vitest foundation via `tests/` package |
+| Configuration | IN PROGRESS | Wave 1 monorepo scaffolding (pnpm workspace, tsconfig.base) |
+| Database | IN PROGRESS | Wave 1 SQLite-pragma D1-compatible schema + migrations in `packages/db/` |
 | Deployment | NOT STARTED | No deployment configuration |
 
 ---
@@ -62,7 +62,7 @@ Implementation Plan: DEFINED
 2. **No .gitignore** — Security risk. Created in this session.
 3. **README.md is empty** — Needs immediate update to reflect actual state.
 4. **No progress.md** — Required by AGENTS.md. Created in this session.
-5. **Hackathon deadline is imminent** — September 8, 2026 at 8:00 AM ET (~47 hours).
+5. **Hackathon deadline is imminent** — September 8, 2026 at 8:00 AM ET (~25.8 hours).
 6. **`apps/worker` is a stock scaffold** — nested `create-cloudflare` Workflows starter (branch `master`, commit `10f0094`, no remote). Not authored work; kept as Wave-2 Workflows reference only.
 7. **`.recon/` tooling directory exists** — the `# Recon` / `.recon/` gitignore additions originated from it; directory is ignored and left in place.
 
@@ -107,6 +107,12 @@ The approved architecture is:
 | Wave 0 specification audit | Sep 6 | Worker A — docs/implementation/spec-audit.md |
 | Wave 0 repository audit | Sep 6 | Worker B — docs/implementation/repository-audit.md |
 | Wave 0 risk audit | Sep 6 | Worker C — docs/implementation/risk-register.md |
+| Contract freeze decision (13 frozen) | Sep 7 | Recorded in Contract Status section |
+| Monorepo scaffolding | Sep 7 | pnpm workspace + tsconfig.base + package skeletons |
+| `@crex/schemas` (Worker A) | Sep 7 | 13 zod schemas, types, registry, helpers — 102 tests pass |
+| `@crex/db` (Worker B) | Sep 7 | D1-compatible SQLite, 10 tables, migrations, repos — 29 tests pass |
+| `@crex/core` (Lead foundation) | Sep 7 | config/env loader, ApiError, logger, workflow transitions, API envelopes — 15 tests pass |
+| `@crex/tests` (Worker C) | Sep 7 | fixtures, contract conformance, db integration — 76 tests pass |
 | Update README.md | Sep 6 | Reflects actual project state |
 
 ---
@@ -116,10 +122,8 @@ The approved architecture is:
 | Task | Owner | Status |
 |------|-------|--------|
 | Wave 1 docs update (Todo 1) | Lead | IN PROGRESS |
-| Wave 1 monorepo foundation (Todo 2) | Lead | NOT STARTED |
-| Wave 1 Zod/TypeScript contracts (Worker A) | Worker A | NOT STARTED |
-| Wave 1 Pydantic models (Worker B) | Worker B | NOT STARTED |
-| Wave 1 test foundation (Worker C) | Worker C | NOT STARTED |
+| Wave 1 integration + final validation (Todo 6) | Lead | IN PROGRESS |
+| Wave 1 commit + push (Todo 8) | Lead | NOT STARTED |
 
 ---
 
@@ -137,10 +141,10 @@ None currently.
 
 | Worker | Task | Deliverable |
 |--------|------|-------------|
-| Lead | Create monorepo scaffolding, shared schemas, config, error model | `packages/schemas/`, `apps/web/`, `apps/worker/` |
-| Worker A | Zod schemas, TypeScript types, API response contracts | `packages/schemas/src/` |
-| Worker B | Pydantic models, verification models | `processing/schemas/` |
-| Worker C | Test foundation (Vitest, pytest, Playwright) | `tests/` |
+| Lead | Monorepo scaffolding, shared config, error model, core foundation | `packages/core/`, `apps/web/`, `apps/worker/` |
+| Worker A | Zod schemas, TS types, API response contracts | `packages/schemas/src/` |
+| Worker B | D1 (SQLite) schema, migrations, data-access layer | `packages/db/`, `packages/db/migrations/` |
+| Worker C | Test foundation (Vitest), fixtures, contract tests | `tests/` |
 
 **Entry Criteria:**
 - Wave 0 audits complete ✅
@@ -157,9 +161,9 @@ None currently.
 
 ## Known Issues
 
-1. No source code exists — must start from zero
-2. Hackathon deadline is ~47 hours away
-3. The full 21-wave implementation plan may need scope reduction
+1. `apps/worker` is a stock Cloudflare Workflows scaffold — kept as Wave-2 reference, not part of Wave 1
+2. Hackathon deadline is ~25.8 hours away
+3. `node:sqlite` is experimental in Node 24 — emits ExperimentalWarning in test output
 4. Need to determine which Tier 1 features are achievable in timeframe
 
 ---
@@ -185,12 +189,20 @@ None currently.
 | Create .gitignore now | Sep 6 | Security hygiene before any code |
 | Create progress.md now | Sep 6 | Required by AGENTS.md |
 | Change AI provider | Sep 6 | User directive: NVIDIA primary (`NVIDIA_API_KEY`), Mistral secondary (`MISTRAL_API_KEY`). Gemini and Ollama removed. |
+| Wave 1 contract freeze (13) | Sep 7 | 12 baseline §14 contracts + APIError frozen now; 6 deferred (Constraint, SponsorRequirement, RepairAction, ReleasePassport → Wave 2; PerformanceObservation, LearningRecord → later) |
+| Worker B DB deferral (Pydantic) | Sep 7 | Python/Pydantic models deferred; Wave 1 Worker B owns `packages/db` (D1-compatible SQLite) instead — divergence from baseline §12/spec §6 recorded here |
 
 ---
 
 ## Test Status
 
-**No tests exist.** Test infrastructure must be created in Wave 1.
+**222 tests passing** across 4 packages (Vitest 3.2):
+- `@crex/schemas` — 102 (schema strictness, in/out conventions, JSON round-trip)
+- `@crex/db` — 29 (adapter, migrations, repos; real `node:sqlite` in-memory)
+- `@crex/core` — 15 (config, API envelopes, workflow transitions, errors)
+- `@crex/tests` — 76 (contract conformance, cross-package db integration)
+
+Run: `pnpm -r test` / `pnpm -r typecheck`.
 
 ---
 
@@ -202,25 +214,26 @@ None currently.
 
 ## Contract Status
 
-**No contracts exist.** Must be frozen in Wave 0, implemented in Wave 1.
+**13 contracts frozen in Wave 1** (implemented in `packages/schemas`), 6 deferred.
 
-Required contracts:
+Frozen (Wave 1):
 - Project
 - SourceAsset
 - TranscriptSegment
 - Claim
 - Evidence
-- Constraint
-- SponsorRequirement
 - GeneratedAsset
 - GeneratedComponent
 - VerificationRun
 - VerificationFinding
-- RepairAction
-- ReleasePassport
-- workflow/job state
-- API responses
-- AI structured outputs
+- WorkflowState (workflow/job state)
+- APIResponse (API responses)
+- AiOutput (AI structured outputs)
+- ApiError
+
+Deferred (registry-documented only, no code):
+- Constraint, SponsorRequirement, RepairAction, ReleasePassport → Wave 2
+- PerformanceObservation, LearningRecord → later wave
 
 ---
 
@@ -229,7 +242,7 @@ Required contracts:
 | Wave | Name | Status |
 |------|------|--------|
 | W0 | Repository Discovery + Contract Freeze | **COMPLETED** |
-| W1 | Shared Contracts + Project Foundation | NOT STARTED |
+| W1 | Shared Contracts + Project Foundation | **IN PROGRESS** (foundation code complete, awaiting commit/push) |
 | W2 | Real Infrastructure Foundation | NOT STARTED |
 | W3 | Source Ingestion Pipeline | NOT STARTED |
 | W4 | Video Understanding | NOT STARTED |
