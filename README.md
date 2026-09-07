@@ -185,10 +185,11 @@ POST /workflows/source-to-release    {projectId, sourceId} → SourceToReleaseWo
 
 ### Live deployment
 
-- **D1:** production database `crex` (`database_id b01526fc-40b4-4024-8616-b2fb6099d94d`) in `apps/worker/wrangler.jsonc`; migrations `0001`–`0006` applied remotely via `npx wrangler d1 migrations apply crex --remote`; 15 app tables + `d1_migrations` verified.
+- **D1:** production database `crex` (`database_id b01526fc-40b4-4024-8616-b2fb6099d94d`) in `apps/worker/wrangler.jsonc`; migrations `0001`–`0011` all applied remotely (`npx wrangler d1 migrations list crex --remote` reports no pending migrations).
 - **R2:** bucket `crex-media` created, bound as `MEDIA`.
 - **Worker:** deployed to <code>https://crex-worker.loujanb2008.workers.dev</code> (bindings `DB`, `MEDIA`, `SOURCE_TO_RELEASE`, AI `vars`).
 - **Verified:** a live upload → `POST /sources` 201 → `PUT /sources/:id/blob` 200 `VALID` (real R2 write + D1 insert) → poll `VALID` → `POST /workflows/source-to-release` → source `READY`; the remote `source_assets` row was read back as `READY` (998 B, checksum match) directly from D1. Re-confirmed live this session: `/health` 200 with db/r2/workflow true, active deployment `1afc0f7f` at 100%.
+- **Runbook:** see `docs/implementation/deploy-runbook.md` for the full deployment/migration/rollback runbook, the SAFE vs DESTRUCTIVE command table, and CORS/Pages guidance.
 
 ## Development Setup
 
