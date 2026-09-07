@@ -264,7 +264,13 @@ async function handleAnalyze(request: Request, env: Env): Promise<Response> {
   if (task !== undefined && (typeof task !== "string" || !(AI_TASK as readonly string[]).includes(task))) {
     return errorResponseForCode("INVALID_AI_REQUEST", "task must be a known AI task");
   }
-  const aiTask: AiOutput["task"] = task === undefined ? "SEMANTIC_UNDERSTANDING" : (task as AiOutput["task"]);
+  if (task !== undefined && task !== "SEMANTIC_UNDERSTANDING") {
+    return errorResponseForCode(
+      "INVALID_AI_REQUEST",
+      "task is recognized but not wired yet; only SEMANTIC_UNDERSTANDING is supported",
+    );
+  }
+  const aiTask: AiOutput["task"] = "SEMANTIC_UNDERSTANDING";
 
   const options = buildProviderOptions(env);
   if (!aiConfigured(options)) {

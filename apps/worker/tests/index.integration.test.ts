@@ -172,6 +172,18 @@ describe("crex-worker HTTP API", () => {
     expect(body.error.code).toBe("INVALID_AI_REQUEST");
   });
 
+  it("POST /ai/analyze rejects a recognized but unwired task", async () => {
+    await seedProject();
+    const res = await exports.default.fetch("https://example.com/ai/analyze", {
+      method: "POST",
+      body: JSON.stringify({ projectId: PROJECT_UUID, task: "CLAIM_EXTRACTION" }),
+    });
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as ErrorBody;
+    expect(body.error.code).toBe("INVALID_AI_REQUEST");
+    expect(body.error.message).toContain("not wired");
+  });
+
   it("POST /ai/analyze runs end-to-end and persists an AiOutput when configured", async () => {
     await seedProject();
     const withKey = env as unknown as Record<string, unknown>;

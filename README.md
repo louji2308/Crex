@@ -7,7 +7,7 @@
 **Phase:** Wave 2 — Real Infrastructure Foundation (IN PROGRESS)
 **Date:** September 7, 2026
 
-The pnpm monorepo foundation is complete: 13 frozen contract schemas (`@crex/schemas`), a D1-compatible SQLite data layer (`@crex/db`), core foundation utilities (`@crex/core`), NVIDIA→Mistral AI adapter with fallback (`@crex/ai`), D1/R2 infrastructure adapters (`@crex/infra`), and a real Cloudflare Worker (**`apps/worker`**) with D1/R2/Workflows bindings, an `AiOutput` persistence pipeline, and a `POST /ai/analyze` route — **415 tests passing**, all packages typecheck.
+The pnpm monorepo foundation is complete: 13 frozen contract schemas (`@crex/schemas`), a D1-compatible SQLite data layer (`@crex/db`), core foundation utilities (`@crex/core`), NVIDIA→Mistral AI adapter with fallback (`@crex/ai`), D1/R2 infrastructure adapters (`@crex/infra`), and a real Cloudflare Worker (**`apps/worker`**) with D1/R2/Workflows bindings, an `AiOutput` persistence pipeline, and a `POST /ai/analyze` route — **416 tests passing**, all packages typecheck.
 
 ---
 
@@ -131,7 +131,7 @@ Without an AI key, `/ai/analyze` returns `503 AI_NOT_CONFIGURED` (honest gating)
 
 ```bash
 pnpm -r typecheck   # strict TS across all packages
-pnpm -r test        # Vitest across all packages (415 tests)
+pnpm -r test        # Vitest across all packages (416 tests)
 ```
 
 ---

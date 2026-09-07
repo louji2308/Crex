@@ -128,6 +128,7 @@ The approved architecture is:
 | Worker C L4: AiOutput persistence | Sep 7 | Migration `0002_ai_outputs.sql` + `AiOutputRepository` (+ DB tests); `src/workflows/ai-output.ts` (`buildProviderOptions`, `aiConfigured`, `providerResultToAiOutput`, `parseAiOutput`, `runGenerationTask`) with unit tests; `POST /ai/analyze` route + integration tests (configured path via stubbed fetch → valid row in D1) |
 | AI task content schemas | Sep 7 | `@crex/schemas` adds `sourceUnderstandingSchema` (SEMANTIC_UNDERSTANDING) as provisional contract + `claimExtractionSchema`; wired as the generation `targetSchema` |
 | `@crex/ai` import hygiene | Sep 7 | `errors.ts` now deep-imports `@crex/core/src/errors` (was `@crex/core` index → `node:fs` config) so `@crex/ai` bundles under workerd; verified via dry-run + dev |
+| Worker C security review | Sep 7 | Trust model enforced: `/ai/analyze` runs only the wired task (`SEMANTIC_UNDERSTANDING`), so the provider schema-validation gate always runs before persistence — known-but-unwired enum tasks are rejected (400 `INVALID_AI_REQUEST`), closing the unvalidated-`normalized` persistence gap; `valid` derives from real schema validation |
 
 ---
 
@@ -205,14 +206,14 @@ Then Wave 3: source ingestion.### Known Issues
 
 ## Test Status
 
-**415 tests passing** across 7 packages:
+**416 tests passing** across 7 packages:
 - `@crex/schemas` — 135 (schema strictness, in/out conventions, JSON round-trip, api/domain, ai-tasks)
 - `@crex/tests` — 100 (contract conformance, cross-package db integration)
 - `@crex/db` — 33 (adapter, migrations, repos incl. ai_outputs; real `node:sqlite` in-memory)
 - `@crex/infra` — 37 (D1/R2 adapters on miniflare/workerd emulation)
 - `@crex/ai` — 36 (NVIDIA/Mistral clients, fallback, validation)
 - `@crex/core` — 18 (config, API envelopes, workflow transitions, errors)
-- `apps/worker` — 56 (HTTP routes, error model, ai-output module, real end-to-end workflow, `/ai/analyze` configured path via stubbed fetch)
+- `apps/worker` — 57 (HTTP routes, error model, ai-output module, real end-to-end workflow, `/ai/analyze` configured path via stubbed fetch, wired-task gating)
 
 Run: `pnpm -r typecheck` (7/7 pass) / `pnpm -r test`.
 
