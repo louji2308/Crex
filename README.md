@@ -4,10 +4,12 @@
 
 ## Current Status
 
-**Phase:** Wave 2 — Real Infrastructure Foundation (IN PROGRESS)
+**Phase:** Wave 3 — Source Ingestion Pipeline (IMPLEMENTED + TESTED; final review in progress)
 **Date:** September 7, 2026
 
-The pnpm monorepo foundation is complete: 13 frozen contract schemas (`@crex/schemas`), a D1-compatible SQLite data layer (`@crex/db`), core foundation utilities (`@crex/core`), NVIDIA→Mistral AI adapter with fallback (`@crex/ai`), D1/R2 infrastructure adapters (`@crex/infra`), and a real Cloudflare Worker (**`apps/worker`**) with D1/R2/Workflows bindings, an `AiOutput` persistence pipeline, and a `POST /ai/analyze` route — **416 tests passing**, all packages typecheck.
+The pnpm monorepo foundation is complete: **17 frozen contract schemas** (`@crex/schemas`), a D1-compatible SQLite data layer (`@crex/db`), core foundation utilities (`@crex/core`), NVIDIA→Mistral AI adapter with fallback (`@crex/ai`), D1/R2 infrastructure adapters (`@crex/infra`), a media inspection package (`@crex/media`), and a real Cloudflare Worker (**`apps/worker`**) with D1/R2/Workflows bindings.
+
+Wave 3 implements the **source ingestion pipeline**: upload → R2 → D1 → media validation → `SourceAsset` → workflow ingestion → `READY`, plus a minimal upload UI. Wave 2's infra/AI groundwork remains in place: `GET /health`, and `POST /ai/analyze` running the `SEMANTIC_UNDERSTANDING` task through NVIDIA→Mistral with schema validation and `AiOutput` persistence. **471 tests passing** across 8 packages; all packages typecheck.
 
 ---
 
@@ -51,7 +53,7 @@ PUBLISH
 | AI (Primary) | NVIDIA (OpenAI-compatible API) |
 | AI (Fallback) | Mistral |
 | Vector Search | Cloudflare Vectorize + LanceDB (local) |
-| Media Processing | FFmpeg |
+| Media Processing | FFmpeg (planned); Wave 3: in-process MP4 probe (`@crex/media`) |
 | Speech Fallback | WhisperX / faster-whisper |
 | Provenance | C2PA Python SDK |
 | Schemas | Zod (TS) + Pydantic (deferred) |
@@ -67,27 +69,60 @@ Crex/
 ├── apps/
 │   └── worker/               # Cloudflare Worker: Workflows + D1 + R2 + HTTP API
 ├── packages/
-│   ├── schemas/              # Frozen contract schemas (13), types, registry
+│   ├── schemas/              # Frozen contract schemas (17), types, registry
 │   ├── db/                   # D1-compatible SQLite: migrations + data-access
 │   ├── core/                 # Config/env loader, ApiError, logger, workflow state
 │   ├── ai/                   # NVIDIA (primary) + Mistral (fallback) adapters
 │   ├── infra/                # D1/R2 adapters over the @crex/db seam
+│   ├── media/                # MP4 probe, media validation, incremental SHA-256, fixtures
 │   └── tests/                # Fixtures, contract conformance, db integration
 ├── docs/
 │   ├── engineering-baseline.md
-│   └── implementation/       # Wave 0 audits (spec, repository, risk)
+│   └── implementation/       # Wave 0 audits + decision records
 ├── Project Spec/             # Authoritative specifications
 ├── AGENTS.md                 # Engineering operating system
 └── progress.md               # Operational progress record
 ```
 
-## Frozen Contracts (Wave 1)
+## Frozen Contracts
 
-`Project, SourceAsset, TranscriptSegment, Claim, Evidence, GeneratedAsset, GeneratedComponent, VerificationRun, VerificationFinding, WorkflowState, ApiResponse, AiOutput, ApiError`.
+`Project, SourceAsset, TranscriptSegment, Claim, Evidence, GeneratedAsset, GeneratedComponent, VerificationRun, VerificationFinding, WorkflowState, Constraint, SponsorRequirement, RepairAction, ReleasePassport, ApiResponse, AiOutput, ApiError`.
 
-Deferred: `Constraint, SponsorRequirement, RepairAction, ReleasePassport` (Wave 2); `PerformanceObservation, LearningRecord` (later).
+Deferred (registry-documented, no code yet): `PerformanceObservation`, `LearningRecord` (later wave).
 
 ---
+
+## Source Ingestion (Wave 3)
+
+The implemented ingestion flow:
+
+```text
+POST /sources                        create upload session (201, status UPLOADING)
+  ↓
+PUT /sources/:uploadId/blob          stream body to R2 + in-flight SHA-256 + size cap
+                                     → @crex/media validates → VALID / INVALID (200)
+  ↓
+GET /sources/:uploadId               poll upload/source status
+GET /sources?projectId=<uuid>        list a project's sources
+GET /sources/ui                      minimal upload UI
+  ↓
+POST /workflows/source-to-release    {projectId, sourceId} → SourceToReleaseWorkflow
+                                     → ingest-source-asset → SourceAsset READY
+```
+
+- **Upload:** `POST /sources` returns a session; the file streams to R2 with an in-flight SHA-256 and a hard size cap (`SOURCE_MAX_SIZE_BYTES`, 100 MiB default) — oversize, or a body whose byte count does not match the declared `content-length`, returns `413` and marks the session `FAILED`.
+- **Validation:** `@crex/media` probes MP4/ISO-BMFF boxes without FFmpeg (container via `ftyp`, duration via `mdhd`/`mvhd`, video codec + width/height via `trak`/`stsd`, audio codec). `validateMediaFile` rejects empty/oversized/unsupported/stream-less files with an `INVALID` status and a reason.
+- **State:** a `SourceAsset` row persists `status`, `media`, `size_bytes`, and `checksum` (`sha256:`). Lifecycle `UPLOADING → UPLOADED → VALIDATING → VALID/INVALID → PROCESSING → READY` is enforced by `SOURCE_STATE_TRANSITIONS` in `packages/db/src/repositories/source-assets.ts`.
+- **Storage:** objects are stored at `sources/{projectId}/{uploadId}-{safeName}`; filenames are validated (no path separators, `..`, NUL, or control bytes).
+- **Workflow:** `POST /workflows/source-to-release` (body `{projectId, id?, sourceId?}`) runs `SourceToReleaseWorkflow`: `bootstrap → running → verify-infrastructure → ingest-source-asset → record-completion` (`COMPLETED`). The ingest step re-verifies the R2 object's size and streams it re-hashing SHA-256 against the stored checksum, then `VALID → PROCESSING → READY`; a size/hash mismatch marks the source `FAILED` and aborts with `SOURCE_CHECKSUM_MISMATCH` (409). Without `sourceId` the step is `SKIPPED`.
+- **AI status:** `POST /ai/analyze` runs only the wired `SEMANTIC_UNDERSTANDING` task through `@crex/ai` (NVIDIA primary, Mistral fallback). Without `NVIDIA_API_KEY`/`MISTRAL_API_KEY` it returns `503 AI_NOT_CONFIGURED` (honest gating); the configured path is covered end-to-end in tests with a stubbed fetch.
+
+### Current limitations
+
+- The `INVALID` validation reason is returned in the API/UI but not persisted on the source row.
+- Worker routes have no auth or rate limiting yet (prototype scope).
+- Media validation is MP4/ISO-BMFF-focused; other containers are rejected as unsupported.
+- Live deploy is credential-blocked: no real D1 `database_id`, live AI keys, or R2 bucket credentials. Local `wrangler dev` + miniflare cover the full upload path.
 
 ## Development Setup
 
@@ -114,14 +149,21 @@ npx wrangler d1 migrations apply crex --local
 
 Migrations live in `packages/db/migrations` (`wrangler.jsonc` points `migrations_dir` there). They run **wrangler-side**, not inside the worker (`node:fs` is unavailable in workerd) — see `docs/implementation/decision-workflow-migrations.md`.
 
+Worker `vars` (defaults in `apps/worker/wrangler.jsonc`) cover AI provider config (`NVIDIA_BASE_URL`, `NVIDIA_MODEL`, `MISTRAL_BASE_URL`, `MISTRAL_MODEL`, `AI_TIMEOUT_MS`, `AI_MAX_RETRIES`, `AI_RETRY_BASE_DELAY_MS`) and the upload size cap `SOURCE_MAX_SIZE_BYTES` (100 MiB).
+
 ### Worker routes
 
 | Method | Path | Behavior |
 |--------|------|----------|
 | GET | `/health` | Bindings + config status |
-| POST | `/workflows/source-to-release` | Create + run a workflow instance (projectId in body) |
+| POST | `/workflows/source-to-release` | Create + run a workflow instance (`{projectId, id?, sourceId?}`) |
 | GET | `/workflows/source-to-release/:id` | Instance status/phase |
-| POST | `/ai/analyze` | Generate → validate → persist an `AiOutput` for a project (`SEMANTIC_UNDERSTANDING` task wired) |
+| POST | `/ai/analyze` | Generate → validate → persist an `AiOutput` (`SEMANTIC_UNDERSTANDING` only; `503` without API keys) |
+| POST | `/sources` | Create an upload session (201) |
+| PUT | `/sources/:uploadId/blob` | Stream blob to R2 (size-capped, media-validated; 200 `VALID`/`INVALID`) |
+| GET | `/sources/:uploadId` | Poll upload/source status |
+| GET | `/sources?projectId=` | List sources for a project |
+| GET | `/sources/ui` | Minimal upload UI (XHR progress + 800 ms polling) |
 
 Without an AI key, `/ai/analyze` returns `503 AI_NOT_CONFIGURED` (honest gating); the configured path is covered end-to-end in tests with a stubbed fetch.
 
@@ -130,8 +172,8 @@ Without an AI key, `/ai/analyze` returns `503 AI_NOT_CONFIGURED` (honest gating)
 ## Testing
 
 ```bash
-pnpm -r typecheck   # strict TS across all packages
-pnpm -r test        # Vitest across all packages (416 tests)
+pnpm -r typecheck   # strict TS across all packages (8/8 green)
+pnpm -r test        # Vitest across all packages (480 tests)
 ```
 
 ---

@@ -210,15 +210,24 @@ export function createSourcesApi(env: Env, deps?: Partial<SourcesDeps>): Sources
 
     const hasher = new IncrementalSha256();
     let count = 0;
+    let emitted = 0;
+    let overflow = false;
+    const declared = Number.isFinite(contentLength) ? contentLength : resolved.maxSizeBytes;
     const guard = new TransformStream<Uint8Array, Uint8Array>({
       transform(chunk, controller) {
         count += chunk.byteLength;
-        if (count > resolved.maxSizeBytes) {
-          controller.error(new CrexError("SOURCE_TOO_LARGE", "upload exceeds max size"));
+        if (emitted >= declared) {
+          overflow = true;
           return;
         }
-        hasher.update(chunk);
-        controller.enqueue(chunk);
+        const allowance = declared - emitted;
+        const slice = chunk.byteLength > allowance ? chunk.subarray(0, allowance) : chunk;
+        emitted += slice.byteLength;
+        if (slice.byteLength < chunk.byteLength) {
+          overflow = true;
+        }
+        hasher.update(slice);
+        controller.enqueue(slice);
       },
     });
 
@@ -229,10 +238,26 @@ export function createSourcesApi(env: Env, deps?: Partial<SourcesDeps>): Sources
 
     try {
       let stored: { checksum: string; total: number };
-      if (Number.isFinite(contentLength)) {
+if (Number.isFinite(contentLength)) {
         const fixed = new FixedLengthStream(contentLength);
         const piped = body.pipeThrough(guard).pipeThrough(fixed);
-        await resolved.putObject(session.objectKey, piped, session.fileType);
+        try {
+          await resolved.putObject(session.objectKey, piped, session.fileType);
+        } catch (error) {
+          if (!(error instanceof CrexError) && count > contentLength) {
+            throw new CrexError(
+              "SOURCE_TOO_LARGE",
+              "upload body does not match declared content-length",
+            );
+          }
+          throw error;
+        }
+        if (overflow || count !== contentLength) {
+          throw new CrexError(
+            "SOURCE_TOO_LARGE",
+            "upload body does not match declared content-length",
+          );
+        }
         stored = { checksum: hasher.digestHex(), total: count };
       } else {
         const { bytes, checksum, count: total } = await drainBody(body, uploadId, hasher);
@@ -291,6 +316,7 @@ export function createSourcesApi(env: Env, deps?: Partial<SourcesDeps>): Sources
     } catch (error) {
       if (error instanceof CrexError && error.code === "SOURCE_TOO_LARGE") {
         await resolved.markFailed(uploadId, "too_large").catch(() => undefined);
+        await resolved.deleteObject(session.objectKey).catch(() => undefined);
         throw error;
       }
       const message = error instanceof Error ? error.message : String(error);

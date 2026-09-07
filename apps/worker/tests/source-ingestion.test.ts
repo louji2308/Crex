@@ -187,4 +187,30 @@ describe("source ingestion", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toContain("text/html");
   });
+
+  it("returns 413 SOURCE_TOO_LARGE when body exceeds declared content-length", async () => {
+    await seedProject();
+    const created = await createUpload(PROJECT_UUID, "mismatch.mp4");
+    const createdBody = (await created.json()) as { uploadId: string };
+    const realBytes = buildMp4({ durationSeconds: 1, video: { codec: "avc1", width: 32, height: 32 } });
+    const fakeContentLength = 10;
+    const api = createSourcesApi(env, { maxSizeBytes: 10_000_000 });
+    const res = await api.handle(
+      new Request(`https://example.com/sources/${createdBody.uploadId}/blob`, {
+        method: "PUT",
+        headers: {
+          "content-type": "application/octet-stream",
+          "content-length": String(fakeContentLength),
+        },
+        body: new Blob([realBytes.buffer as ArrayBuffer]),
+      }),
+      `/sources/${createdBody.uploadId}/blob`,
+    );
+    expect(res).not.toBeNull();
+    expect(res!.status).toBe(413);
+    const body = (await res!.json()) as ErrorBody;
+    expect(body.error.code).toBe("SOURCE_TOO_LARGE");
+    expect(body.error.message).not.toContain("FixedLength");
+    expect(body.error.message).not.toContain("R2");
+  });
 });
