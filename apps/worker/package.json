@@ -7,11 +7,21 @@
     "deploy": "wrangler deploy",
     "start": "wrangler dev",
     "dev": "wrangler dev",
-    "cf-typegen": "wrangler types"
+    "cf-typegen": "wrangler types",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@crex/core": "workspace:*",
+    "@crex/db": "workspace:*",
+    "@crex/infra": "workspace:*",
+    "@crex/schemas": "workspace:*"
   },
   "devDependencies": {
+    "@cloudflare/vitest-plugin": "^1.0.0",
     "@types/node": "^26.4.1",
     "typescript": "^5.0.4",
+    "vitest": "^4.1.0",
     "wrangler": "^4.129.0"
   }
 }

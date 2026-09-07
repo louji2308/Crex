@@ -2,10 +2,9 @@
 
 ## Current Status
 
-**Phase:** Wave 0 COMPLETE → Wave 1 NEXT
+**Phase:** Wave 2 IN PROGRESS — Worker C (apps/worker real shell) done
 **Date:** September 7, 2026
 **Hackathon Deadline:** September 8, 2026 — 8:00 AM ET
-**Time Remaining:** ~25.8 hours
 
 ---
 
@@ -13,8 +12,8 @@
 
 ```text
 Branch: main
-Commits: 4
-Source Code: NONE (greenfield)
+Commits: 5 (8 ahead of origin)
+Source Code: SUBSTANTIAL (packages/ + apps/worker)
 Specification: COMPLETE
 Architecture: DEFINED
 Implementation Plan: DEFINED
@@ -29,17 +28,18 @@ Implementation Plan: DEFINED
 | AGENTS.md | COMPLETE | 2223-line engineering operating system |
 | README.md | UPDATED | Reflects actual project state |
 | Project Spec/ | COMPLETE | 4 specification documents |
-| .gitignore | COMPLETE | Created this session |
-| progress.md | COMPLETE | Created this session |
+| .gitignore | COMPLETE | Living file, updated continuously |
+| progress.md | COMPLETE | Operational record |
 | docs/engineering-baseline.md | COMPLETE | Created this session |
 | docs/implementation/spec-audit.md | COMPLETE | Worker A deliverable |
 | docs/implementation/repository-audit.md | COMPLETE | Worker B deliverable |
 | docs/implementation/risk-register.md | COMPLETE | Worker C deliverable |
-| Source Code | IN PROGRESS | Wave 1 avoids `apps/`/`worker/` white label; owns contracts + core instead |
-| Tests | IN PROGRESS | Wave 1 Vitest foundation via `tests/` package |
-| Configuration | IN PROGRESS | Wave 1 monorepo scaffolding (pnpm workspace, tsconfig.base) |
-| Database | IN PROGRESS | Wave 1 SQLite-pragma D1-compatible schema + migrations in `packages/db/` |
-| Deployment | NOT STARTED | No deployment configuration |
+| Source Code | IN PROGRESS | `packages/*` + `apps/worker` real shell |
+| Tests | IN PROGRESS | 369 tests green across 7 packages |
+| Configuration | COMPLETE | pnpm workspace, tsconfig.base, package configs |
+| Database | COMPLETE | D1-compatible schema + migrations + adapters |
+| AI Providers | IMPLEMENTED | @crex/ai NVIDIA + Mistral fallback (36 tests) |
+| Deployment | IN PROGRESS | apps/worker bindings (D1/R2/Workflows) + dry-run validated |
 
 ---
 
@@ -116,6 +116,11 @@ The approved architecture is:
 | Update README.md | Sep 6 | Reflects actual project state |
 | Wave 1 integration | Sep 7 | Reconciled parallel worker output; all packages typecheck + 222 tests green |
 | Commit + push Wave 1 foundation | Sep 7 | `c305fe4` `chore: establish shared engineering foundation` on main |
+| `@crex/ai` (Worker A) | Sep 7 | NVIDIA + Mistral adapters, fallback orchestration, schema validation gate — 36 tests |
+| Async DB seam + D1/R2 adapters (Worker B) | Sep 7 | `0413453` async `SqlDb` seam, batch migrations, `@crex/infra` D1/R2 adapters on miniflare — 37 tests |
+| `apps/worker` real shell (Worker C) | Sep 7 | Workflow class, D1/R2/Workflows bindings, HTTP routes, vitest-plugin harness — 19 worker tests |
+| Worker C HTTP API + workflow | Sep 7 | `POST/GET /workflows/source-to-release`, `/health`, real end-to-end workflow to COMPLETED validated |
+| Decision: wrangler-side D1 migrations | Sep 7 | `docs/implementation/decision-workflow-migrations.md` |
 
 ---
 
@@ -123,7 +128,7 @@ The approved architecture is:
 
 | Task | Owner | Status |
 |------|-------|--------|
-| None — Wave 1 complete | — | Awaiting Wave 2 start |
+| Worker C remaining L1–L4 | Lead | L1 worker-bindings config next (post-commit) |
 
 ---
 
@@ -135,27 +140,24 @@ None currently.
 
 ## Next
 
-### Wave 2 — Real Infrastructure Foundation (not started)
+### Wave 2 — Real Infrastructure Foundation (IN PROGRESS)
 
-- Add remaining deferred contracts that become persistable: `Constraint`, `SponsorRequirement`, `RepairAction`, `ReleasePassport` schemas.
-- Wire real AI providers (NVIDIA primary via `NVIDIA_API_KEY`, Mistral fallback via `MISTRAL_API_KEY`) behind the `@crex/schemas` `aiOutputSchema` validation gate.
-- Deploy foundations: D1 binding, R2, Workflows using the stock `apps/worker` scaffold as reference.
-- Replace `node:sqlite` with the Cloudflare D1 binding behind the existing `SqlDb` seam where required by deployment.
+Worker C remaining tasks (lead-owned after this commit):
+- L1: worker-bindings config (finalize `wrangler.jsonc`; D1 `database_id` needed for real deploy).
+- L2: infra boundary (map which infra calls belong behind `@crex/infra` adapters; keep worker dependency direction clean).
+- L3: error model (align worker error envelopes with APIError/CrexError contract; status mapping).
+- L4: AiOutput → ProviderResult → WorkflowState alignment (worker workflow must persist validated AI outputs into D1 state).
 
-**Acceptance Criteria:**
-- Contracts compile ✅
-- Tests run ✅ (222 passing)
-- No duplicate schema definitions ✅
-- Downstream workers can build against frozen contracts ✅
+Then: full aggregate verification, docs (`.env.example`, README, progress), security review, push.
 
 ---
 
 ## Known Issues
 
-1. `apps/worker` is a stock Cloudflare Workflows scaffold — kept as Wave-2 reference, not part of Wave 1
-2. Hackathon deadline is ~25.8 hours away
-3. `node:sqlite` is experimental in Node 24 — emits ExperimentalWarning in test output
-4. Need to determine which Tier 1 features are achievable in timeframe
+1. D1 `database_id` in `wrangler.jsonc` is a placeholder — real deploy requires a provisioned D1 database + credentials.
+2. Hackathon deadline is Sept 8, 8:00 AM ET.
+3. `node:sqlite` is experimental in Node 24 — emits ExperimentalWarning in test output (local-only).
+4. Miniflare local Workflows retains completed instances only briefly; `Workflow.get()` on a finished instance can throw `instance.not_found` locally — worker GET route handles this (404).
 
 ---
 
@@ -182,24 +184,33 @@ None currently.
 | Change AI provider | Sep 6 | User directive: NVIDIA primary (`NVIDIA_API_KEY`), Mistral secondary (`MISTRAL_API_KEY`). Gemini and Ollama removed. |
 | Wave 1 contract freeze (13) | Sep 7 | 12 baseline §14 contracts + APIError frozen now; 6 deferred (Constraint, SponsorRequirement, RepairAction, ReleasePassport → Wave 2; PerformanceObservation, LearningRecord → later) |
 | Worker B DB deferral (Pydantic) | Sep 7 | Python/Pydantic models deferred; Wave 1 Worker B owns `packages/db` (D1-compatible SQLite) instead — divergence from baseline §12/spec §6 recorded here |
+| Wrangler-side D1 migrations | Sep 7 | Worker does NOT run in-app `migrate()` (node:fs unavailable in workerd); schema stays in `packages/db/migrations`, applied via `wrangler d1 migrations apply` — `decision-workflow-migrations.md` |
+| Worker tests use @cloudflare/vitest-plugin | Sep 7 | `readD1Migrations` → `applyD1Migrations` harness so worker integration tests run real schema on miniflare |
 
 ---
 
 ## Test Status
 
-**222 tests passing** across 4 packages (Vitest 3.2):
-- `@crex/schemas` — 102 (schema strictness, in/out conventions, JSON round-trip)
-- `@crex/db` — 29 (adapter, migrations, repos; real `node:sqlite` in-memory)
-- `@crex/core` — 15 (config, API envelopes, workflow transitions, errors)
-- `@crex/tests` — 76 (contract conformance, cross-package db integration)
+**369 tests passing** across 7 packages:
+- `@crex/schemas` — 127 (schema strictness, in/out conventions, JSON round-trip, api/domain)
+- `@crex/tests` — 100 (contract conformance, cross-package db integration)
+- `@crex/db` — 32 (adapter, migrations, repos; real `node:sqlite` in-memory)
+- `@crex/infra` — 37 (D1/R2 adapters on miniflare/workerd emulation)
+- `@crex/ai` — 36 (NVIDIA/Mistral clients, fallback, validation)
+- `@crex/core` — 18 (config, API envelopes, workflow transitions, errors)
+- `apps/worker` — 19 (HTTP routes + real end-to-end workflow to COMPLETED via vitest-plugin + miniflare)
 
-Run: `pnpm -r test` / `pnpm -r typecheck`.
+Run: `pnpm -r typecheck` (7/7 pass) / `pnpm -r test`.
 
 ---
 
 ## Deployment Status
 
-**No deployment configuration exists.** Must be created in Wave 2.
+**IN PROGRESS.** `apps/worker` bindings configured (D1 `crex`, R2 `crex-media`, Workflows `crex-source-to-release`).
+- `wrangler deploy --dry-run` passes (154 KiB bundle).
+- `wrangler dev` boots locally; `/health` returns all bindings active.
+- D1 `database_id` is a placeholder until a real D1 database is provisioned — real `wrangler deploy` + `wrangler d1 migrations apply` pending credentials.
+- Decision: `decision-workflow-migrations.md` — migrations run wrangler-side, not in-app.
 
 ---
 
@@ -234,7 +245,7 @@ Deferred (registry-documented only, no code):
 |------|------|--------|
 | W0 | Repository Discovery + Contract Freeze | **COMPLETED** |
 | W1 | Shared Contracts + Project Foundation | **COMPLETED** — `c305fe4` committed & pushed |
-| W2 | Real Infrastructure Foundation | NOT STARTED |
+| W2 | Real Infrastructure Foundation | IN PROGRESS — infra + AI + worker shell committed; L1–L4 remaining |
 | W3 | Source Ingestion Pipeline | NOT STARTED |
 | W4 | Video Understanding | NOT STARTED |
 | W5 | Evidence Graph | NOT STARTED |
