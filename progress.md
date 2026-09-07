@@ -20,7 +20,7 @@
 - Live proof through the deployed worker: seed project -> POST /sources 201 -> PUT blob 200 VALID (real R2 + D1 insert) -> poll VALID -> POST /workflows/source-to-release -> source READY ~2s; remote D1 `source_assets` row read back READY (998 B, checksum match).
 - Live AI proof: POST /ai/analyze -> NVIDIA EOL -> OpenRouter fallback -> HTTP 201; `AiOutput` persisted to remote D1 `ai_outputs` (provider openrouter, fallback_used 1).
 
-**Integration status:** Wave 3 + Wave 6/7 committed and pushed. OpenRouter provider live (NVIDIA -> OpenRouter) committed and pushed (`19eb3da`). **Wave 13 provenance foundation COMPLETE + TESTED; Wave 14 audience IMPLEMENTED + TESTED.** **Monorepo green**: `pnpm -r typecheck` all pass (11/11); `pnpm -r test` all pass (576 tests across 10 test-running workspaces). The pre-existing `apps/web` scaffold typecheck error from `45c3de2` is FIXED (ProjectForm TS2345), and `apps/web` `vitest run` now exits 0 via `passWithNoTests`. A flaky `packages/db` timestamp race in `repositories.test.ts` was root-caused (frozen fixture timestamps vs insert-time `toISOString()`) and fixed. The `packages/db` `understandings.ts` TS2322 (sibling Wave 4 file, `this.get(id)!` inside async fn) was fixed and typecheck is fully green. The Wave 13 frozen-registry count mismatch in `@crex/tests` was resolved: `FROZEN_NAMES`/conformance `CASES` now include `ProvenanceRecord`; `@crex/tests` is 106/106. `packages/infra` `d1.test.ts` `TABLE_NAMES` updated for the sibling-added tables (transcripts, semantic_sections, understandings, provenance_records, audience_*); infra 37/37.
+**Integration status:** Wave 3 + Wave 6/7 committed and pushed. OpenRouter provider live (NVIDIA -> OpenRouter) committed and pushed (`19eb3da`). **Wave 13 provenance foundation COMPLETE + TESTED; Wave 14 audience IMPLEMENTED + TESTED.** **Monorepo green**: `pnpm -r typecheck` all pass (11/11); `pnpm -r test` all pass (583 tests across 10 test-running workspaces). The pre-existing `apps/web` scaffold typecheck error from `45c3de2` is FIXED (ProjectForm TS2345), and `apps/web` `vitest run` now exits 0 via `passWithNoTests`. A flaky `packages/db` timestamp race in `repositories.test.ts` was root-caused (frozen fixture timestamps vs insert-time `toISOString()`) and fixed. The `packages/db` `understandings.ts` TS2322 (sibling Wave 4 file, `this.get(id)!` inside async fn) was fixed and typecheck is fully green. The Wave 13 frozen-registry count mismatch in `@crex/tests` was resolved: `FROZEN_NAMES`/conformance `CASES` now include `ProvenanceRecord`; `@crex/tests` is 106/106. `packages/infra` `d1.test.ts` `TABLE_NAMES` updated for the sibling-added tables (transcripts, semantic_sections, understandings, provenance_records, audience_*); infra 37/37.
 
 ---
 
@@ -81,9 +81,9 @@ Status: **PASSED** (verified this session; no separate security-review artifact 
 - **Migration** `0010_provenance.sql` (0007-0009 taken by parallel sibling streams): `provenance_records` table with CHECK constraints, FK to `projects`, indexes on `asset_id` + `project_id`.
 - **Repository** `ProvenanceRepository` (`packages/db`): createProvisionally, getById, getByAssetId, getLatestByAssetId, setManifest, setSigningStatus, setVerificationStatus, listByProjectId. 12 new db tests (61 -> 66 total... schema count kept at likely 66; 12 provenance repo tests added).
 - **`@crex/c2pa` package** (new): `buildManifest` (C2PA manifest with `c2pa.crex_provenance` assertion + `c2pa.asset_id`, `dc.title`, `dc.created`, optional ingredients), `verifyManifest` (VALID/INVALID/UNSIGNED/UNTRUSTED/MISSING with reasons), `invokePythonCli` gateway to `python/cli.py` (`embed`/`verify`). 22 unit tests passing.
-- **Worker API** (`apps/worker/src/provenance.ts` + `provenance-routes.ts`, wired into `index.ts`, `@crex/c2pa` workspace dep): POST `/provenance/records` (hashes real R2 bytes via `@crex/media` incremental sha256, persists `UNSIGNED`), GET `/provenance/records/:id`, GET `/provenance/verify?assetId=[&recordId=]` (re-hashes real R2 bytes, then C2PA verify -> status). Verification always re-reads R2 — never trusts stored hashes. 14 new worker route tests (worker suite 96/96).
+- **Worker API** (`apps/worker/src/provenance.ts` + `provenance-routes.ts`, wired into `index.ts`, `@crex/c2pa` workspace dep): POST `/provenance/records` (hashes real R2 bytes via `@crex/media` incremental sha256, persists `UNSIGNED`), GET `/provenance/records/:id`, GET `/provenance/verify?assetId=[&recordId=]` (re-hashes real R2 bytes, then C2PA verify -> status). Verification always re-reads R2 — never trusts stored hashes. 14 new worker route tests (worker suite 103/103).
 - **Honest C2PA stance**: records are created `UNSIGNED` and bound to real R2 bytes; the system never fakes signing. Real signed embed/verify requires `c2pa-python`, which does not install on this machine.
-- **Integration**: `packages/infra` `d1.test.ts` `TABLE_NAMES` updated for all sibling-added tables (23 tables total); `packages/db` `understandings.ts` TS2322 fixed by orchestrator. Full monorepo: typecheck green (11/11), 576 tests green.
+- **Integration**: `packages/infra` `d1.test.ts` `TABLE_NAMES` updated for all sibling-added tables (23 tables total); `packages/db` `understandings.ts` TS2322 fixed by orchestrator. Full monorepo: typecheck green (11/11), 583 tests green.
 
 ### Known Limitations
 
@@ -100,7 +100,7 @@ Status: **PASSED** (verified this session; no separate security-review artifact 
 - **Repositories** (`packages/db/src/repositories/`): `AudienceProfileRepository` (incl. upsert), `AudienceObservationRepository` (incl. upsert-by-dedupe-key), `AudienceInsightRepository` (incl. deleteByProject), `AudienceRecommendationRepository` (incl. deleteByProject). Exported from `repositories/index.ts`.
 - **`@crex/audience` package** (deterministic core, no AI): `aggregateProfile` (picks highest-priority/confidence observation per metric), `computeInsights` (AGGREGATED_PROFILE / DIVERGENCE / GAP / DATA_INSUFFICIENT + hasSufficientData), `generateRecommendations` (ACKNOWLEDGE_LIMITS / SPLIT / EXPAND). Deterministic-first per AGENTS.md — AI interpretation (future) stays separate.
 - **Worker API** (`apps/worker/src/audience-routes.ts`, wired into `index.ts`): POST/GET `/audience/profiles`, POST/GET `/audience/observations`, POST `/audience/compute` (aggregate + insights + recommendations, persisted), GET `/audience/context`.
-- **Tests**: schemas 16 (audience.test.ts), audience 12, db +5 audience repo tests (66 total), worker audience-routes 7 (96 total). All green.
+- **Tests**: schemas 16 (audience.test.ts), audience 12, db +5 audience repo tests (66 total), worker audience-routes 7 (103 total). All green.
 
 ### Known Limitations
 
@@ -333,7 +333,7 @@ Then Wave 4: video understanding (planning).
 
 ## Test Status
 
-**Monorepo tests all pass** (576 total) across 10 test-running workspaces:
+**Monorepo tests all pass** (583 total) across 10 test-running workspaces:
 - `@crex/schemas` - 154 (schema strictness, in/out conventions, JSON round-trip, api/domain, ai-tasks, audience contracts)
 - `@crex/tests` — 106 (contract conformance incl. `ProvenanceRecord`, cross-package db integration)
 - `@crex/audience` - 12 (deterministic aggregation, insights, recommendations)
@@ -341,7 +341,7 @@ Then Wave 4: video understanding (planning).
 - `@crex/infra` — 37 (D1/R2 adapters on miniflare/workerd emulation; table list covers all 23 tables)
 - `@crex/ai` — 36 (NVIDIA/Mistral/OpenRouter clients, fallback, validation)
 - `@crex/core` — 18 (config, API envelopes, workflow transitions, errors)
-- `apps/worker` - 96 (HTTP routes, error model, ai-output module, sources routes + UI, source-ingestion 8 tests incl. workflow-to-READY, `/ai/analyze` via stubbed fetch, wired-task gating, NVIDIA->OpenRouter fallback, audience API routes, provenance routes 14)
+- `apps/worker` - 103 (HTTP routes, error model, ai-output module, sources routes + UI, source-ingestion 8 tests incl. workflow-to-READY, `/ai/analyze` via stubbed fetch, wired-task gating, NVIDIA->OpenRouter fallback, audience API routes, provenance routes 14, video-understanding routes)
 - `@crex/media` - 29 (incremental SHA-256, MP4 probe, validation, fixtures)
 - `@crex/c2pa` - 22 (manifest build, 5-state verify, python CLI invoke, gated integration)
 - `apps/web` - 0 (no tests written yet; `vitest run` exits 0 via `passWithNoTests`)
@@ -419,7 +419,7 @@ Wave 14 audience contracts (defined in `packages/schemas/src/audience.ts`, deep-
 | W11 | Re-Verification | NOT STARTED |
 | W12 | Release Passport | NOT STARTED |
 | W13 | Provenance Metadata | **COMPLETE + TESTED + DEPLOYED** — `ProvenanceRecord` frozen (18th contract), migration `0010_provenance.sql`, `ProvenanceRepository` (12 tests), `@crex/c2pa` package (22 tests), worker `/provenance/*` routes (14 tests); real R2 bytes hashed, honest `UNSIGNED` state; migration applied remotely + worker deployed (`1c6e716`, version `9e85ac61`); c2pa Python SDK NOT installable on this machine (py3exiv2 needs MSVC 14.0) |
-| W14 | Audience Context + Learning | **IMPLEMENTED + TESTED** — `@crex/audience` package (deterministic aggregation/insights/recommendations) + `packages/schemas/src/audience.ts` contracts + migration `0011_audience.sql` + 4 audience repositories + worker `/audience/*` API routes (profiles, observations, compute, context). Schemas 154, audience 12, db 66, worker 96 tests green |
+| W14 | Audience Context + Learning | **IMPLEMENTED + TESTED** — `@crex/audience` package (deterministic aggregation/insights/recommendations) + `packages/schemas/src/audience.ts` contracts + migration `0011_audience.sql` + 4 audience repositories + worker `/audience/*` API routes (profiles, observations, compute, context). Schemas 154, audience 12, db 66, worker 103 tests green |
 | W15 | End-to-End Integration | NOT STARTED |
 | W16 | Adversarial Benchmark | COMPLETE (29/33 passing; 4 pre-existing failures in timing/semantic drift) |
 | W17 | Security + Reliability | NOT STARTED |
