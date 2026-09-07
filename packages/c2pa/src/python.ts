@@ -25,6 +25,7 @@ export interface PythonCliArgs {
   signCert?: string;
   signKey?: string;
   passPhrase?: string;
+  trustAnchors?: string;
 }
 
 export interface PythonCliResult {
@@ -55,6 +56,10 @@ function buildArgs(
     if (args.passPhrase) {
       parts.push("--passphrase", args.passPhrase);
     }
+  }
+
+  if (tool === "verify" && args.trustAnchors) {
+    parts.push("--trust-anchors", args.trustAnchors);
   }
 
   return parts;
