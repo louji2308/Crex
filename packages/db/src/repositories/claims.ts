@@ -13,21 +13,21 @@ export class ClaimRepository {
     this.db = db;
   }
 
-  insert(claim: Claim): Claim {
+  async insert(claim: Claim): Promise<Claim> {
     const parsed = claimSchema.parse(claim);
-    insertRow(this.db, TABLE, parsed);
+    await insertRow(this.db, TABLE, parsed);
     return parsed;
   }
 
-  get(id: string): Claim | undefined {
+  async get(id: string): Promise<Claim | undefined> {
     return getRow<Claim>(this.db, `SELECT * FROM ${TABLE} WHERE id = ?`, [id], JSON_FIELDS);
   }
 
-  list(): Claim[] {
+  async list(): Promise<Claim[]> {
     return listRows<Claim>(this.db, `SELECT * FROM ${TABLE} ORDER BY created_at`, [], JSON_FIELDS);
   }
 
-  listByProject(projectId: string): Claim[] {
+  async listByProject(projectId: string): Promise<Claim[]> {
     return listRows<Claim>(
       this.db,
       `SELECT * FROM ${TABLE} WHERE project_id = ? ORDER BY created_at`,
@@ -36,7 +36,7 @@ export class ClaimRepository {
     );
   }
 
-  listBySegment(segmentId: string): Claim[] {
+  async listBySegment(segmentId: string): Promise<Claim[]> {
     return listRows<Claim>(
       this.db,
       `SELECT * FROM ${TABLE} WHERE segment_id = ? ORDER BY created_at`,

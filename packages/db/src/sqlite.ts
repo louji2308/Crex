@@ -8,16 +8,22 @@ export interface SqlRunResult {
 }
 
 export interface SqlStatement {
-  run(...params: SqlValue[]): SqlRunResult;
-  get(...params: SqlValue[]): Record<string, SqlValue> | undefined;
-  all(...params: SqlValue[]): Record<string, SqlValue>[];
+  run(...params: SqlValue[]): Promise<SqlRunResult>;
+  get(...params: SqlValue[]): Promise<Record<string, SqlValue> | undefined>;
+  all(...params: SqlValue[]): Promise<Record<string, SqlValue>[]>;
+}
+
+export interface SqlBatchItem {
+  sql: string;
+  params?: SqlValue[];
 }
 
 export interface SqlDb {
   readonly isOpen: boolean;
   prepare(sql: string): SqlStatement;
-  exec(sql: string): void;
-  close(): void;
+  exec(sql: string): Promise<void>;
+  batch(statements: SqlBatchItem[]): Promise<void>;
+  close(): Promise<void>;
 }
 
 export class SqliteStatement implements SqlStatement {
@@ -27,7 +33,7 @@ export class SqliteStatement implements SqlStatement {
     this.statement = statement;
   }
 
-  run(...params: SqlValue[]): SqlRunResult {
+  async run(...params: SqlValue[]): Promise<SqlRunResult> {
     const result = this.statement.run(...params);
     return {
       changes: Number(result.changes),
@@ -35,11 +41,11 @@ export class SqliteStatement implements SqlStatement {
     };
   }
 
-  get(...params: SqlValue[]): Record<string, SqlValue> | undefined {
+  async get(...params: SqlValue[]): Promise<Record<string, SqlValue> | undefined> {
     return this.statement.get(...params);
   }
 
-  all(...params: SqlValue[]): Record<string, SqlValue>[] {
+  async all(...params: SqlValue[]): Promise<Record<string, SqlValue>[]> {
     return this.statement.all(...params);
   }
 }
@@ -62,12 +68,30 @@ export class SqliteDatabase implements SqlDb {
     return new SqliteStatement(this.db.prepare(sql));
   }
 
-  exec(sql: string): void {
+  async exec(sql: string): Promise<void> {
     this.assertOpen();
     this.db.exec(sql);
   }
 
-  close(): void {
+  async batch(statements: SqlBatchItem[]): Promise<void> {
+    this.assertOpen();
+    this.db.exec("BEGIN");
+    try {
+      for (const item of statements) {
+        this.db.prepare(item.sql).run(...(item.params ?? []));
+      }
+      this.db.exec("COMMIT");
+    } catch (error) {
+      try {
+        this.db.exec("ROLLBACK");
+      } catch {
+        // preserve the original failure
+      }
+      throw error;
+    }
+  }
+
+  async close(): Promise<void> {
     if (!this.open) {
       return;
     }

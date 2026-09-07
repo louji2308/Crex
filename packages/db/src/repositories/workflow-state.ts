@@ -13,21 +13,21 @@ export class WorkflowStateRepository {
     this.db = db;
   }
 
-  insert(state: WorkflowState): WorkflowState {
+  async insert(state: WorkflowState): Promise<WorkflowState> {
     const parsed = workflowStateSchema.parse(state);
-    insertRow(this.db, TABLE, parsed);
+    await insertRow(this.db, TABLE, parsed);
     return parsed;
   }
 
-  get(id: string): WorkflowState | undefined {
+  async get(id: string): Promise<WorkflowState | undefined> {
     return getRow<WorkflowState>(this.db, `SELECT * FROM ${TABLE} WHERE id = ?`, [id], JSON_FIELDS);
   }
 
-  list(): WorkflowState[] {
+  async list(): Promise<WorkflowState[]> {
     return listRows<WorkflowState>(this.db, `SELECT * FROM ${TABLE} ORDER BY created_at`, [], JSON_FIELDS);
   }
 
-  listByProject(projectId: string): WorkflowState[] {
+  async listByProject(projectId: string): Promise<WorkflowState[]> {
     return listRows<WorkflowState>(
       this.db,
       `SELECT * FROM ${TABLE} WHERE project_id = ? ORDER BY created_at`,

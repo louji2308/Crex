@@ -13,21 +13,21 @@ export class SourceAssetRepository {
     this.db = db;
   }
 
-  insert(sourceAsset: SourceAsset): SourceAsset {
+  async insert(sourceAsset: SourceAsset): Promise<SourceAsset> {
     const parsed = sourceAssetSchema.parse(sourceAsset);
-    insertRow(this.db, TABLE, parsed);
+    await insertRow(this.db, TABLE, parsed);
     return parsed;
   }
 
-  get(id: string): SourceAsset | undefined {
+  async get(id: string): Promise<SourceAsset | undefined> {
     return getRow<SourceAsset>(this.db, `SELECT * FROM ${TABLE} WHERE id = ?`, [id], JSON_FIELDS);
   }
 
-  list(): SourceAsset[] {
+  async list(): Promise<SourceAsset[]> {
     return listRows<SourceAsset>(this.db, `SELECT * FROM ${TABLE} ORDER BY created_at`, [], JSON_FIELDS);
   }
 
-  listByProject(projectId: string): SourceAsset[] {
+  async listByProject(projectId: string): Promise<SourceAsset[]> {
     return listRows<SourceAsset>(
       this.db,
       `SELECT * FROM ${TABLE} WHERE project_id = ? ORDER BY created_at`,

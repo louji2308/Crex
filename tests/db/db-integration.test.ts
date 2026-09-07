@@ -26,7 +26,7 @@ import {
 describe("schemas + db integration on in-memory SQLite", () => {
   it("migrates all 10 tables", async () => {
     await withMemoryDb(async (db) => {
-      const rows = db
+      const rows = await db
         .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
         .all();
       const names = rows.map((row) => String(row.name)).sort();
@@ -56,32 +56,32 @@ describe("schemas + db integration on in-memory SQLite", () => {
         const components = new GeneratedComponentRepository(db);
 
         const project = projectFixture();
-        projects.insert(project);
+        await projects.insert(project);
 
         const source = sourceAssetFixture({ project_id: project.id });
-        sources.insert(source);
+        await sources.insert(source);
 
         const segment = transcriptSegmentFixture({ source_asset_id: source.id });
-        segments.insert(segment);
+        await segments.insert(segment);
 
         const claim = claimFixture({ project_id: project.id, segment_id: segment.id });
-        claims.insert(claim);
+        await claims.insert(claim);
 
         const ev = evidenceFixture({ claim_id: claim.id });
-        evidenceRepo.insert(ev);
+        await evidenceRepo.insert(ev);
 
         const asset = generatedAssetFixture({ project_id: project.id });
-        assets.insert(asset);
+        await assets.insert(asset);
 
         const component = generatedComponentFixture({ asset_id: asset.id });
-        components.insert(component);
+        await components.insert(component);
 
-        const roundTripSource = sources.get(source.id);
+        const roundTripSource = await sources.get(source.id);
         expect(roundTripSource).not.toBeUndefined();
         expect(roundTripSource!.checksum).toBe(source.checksum);
         expect(roundTripSource!.size_bytes).toBe(source.size_bytes);
 
-        const roundTripClaim = claims.get(claim.id);
+        const roundTripClaim = await claims.get(claim.id);
         expect(roundTripClaim!.content).toBe(claim.content);
       });
     },
@@ -96,23 +96,23 @@ describe("schemas + db integration on in-memory SQLite", () => {
       const evidenceRepo = new EvidenceRepository(db);
 
       const project = projectFixture();
-      projects.insert(project);
+      await projects.insert(project);
       const source = sourceAssetFixture({ project_id: project.id });
-      sources.insert(source);
+      await sources.insert(source);
       const segment = transcriptSegmentFixture({ source_asset_id: source.id });
-      segments.insert(segment);
+      await segments.insert(segment);
 
       const c1 = claimFixture({ project_id: project.id, segment_id: segment.id });
       const c2 = claimFixture({ project_id: project.id, segment_id: segment.id });
-      claims.insert(c1);
-      claims.insert(c2);
+      await claims.insert(c1);
+      await claims.insert(c2);
 
-      const bySegment = claims.listBySegment(segment.id);
+      const bySegment = await claims.listBySegment(segment.id);
       expect(bySegment.map((c) => c.id).sort()).toEqual([c1.id, c2.id].sort());
 
       const ev = evidenceFixture({ claim_id: c1.id });
-      evidenceRepo.insert(ev);
-      const evs = evidenceRepo.listByClaim(c1.id);
+      await evidenceRepo.insert(ev);
+      const evs = await evidenceRepo.listByClaim(c1.id);
       expect(evs.map((e) => e.id)).toContain(ev.id);
     });
   });
@@ -126,17 +126,17 @@ describe("schemas + db integration on in-memory SQLite", () => {
       const findings = new VerificationFindingRepository(db);
 
       const project = projectFixture();
-      projects.insert(project);
+      await projects.insert(project);
       const asset = generatedAssetFixture({ project_id: project.id });
-      assets.insert(asset);
+      await assets.insert(asset);
       const component = generatedComponentFixture({ asset_id: asset.id });
-      components.insert(component);
+      await components.insert(component);
 
       const run = verificationRunFixture({
         project_id: project.id,
         asset_id: asset.id,
       });
-      runs.insert(run);
+      await runs.insert(run);
 
       const f1 = verificationFindingFixture({
         verification_run_id: run.id,
@@ -148,14 +148,14 @@ describe("schemas + db integration on in-memory SQLite", () => {
         asset_id: asset.id,
         component_id: component.component_id,
       });
-      findings.insert(f1);
-      findings.insert(f2);
+      await findings.insert(f1);
+      await findings.insert(f2);
 
-      const runBack = runs.get(run.id);
+      const runBack = await runs.get(run.id);
       expect(runBack).not.toBeUndefined();
       expect(runBack!.result).toBe(run.result);
 
-      const listed = findings.listByRun(run.id);
+      const listed = await findings.listByRun(run.id);
       expect(listed).toHaveLength(2);
       expect(listed.map((f) => f.id).sort()).toEqual([f1.id, f2.id].sort());
     });

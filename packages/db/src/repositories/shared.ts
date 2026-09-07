@@ -22,12 +22,12 @@ export function toDbValue(value: unknown): SqlValue {
   return JSON.stringify(value);
 }
 
-export function insertRow(db: SqlDb, table: string, row: Record<string, unknown>): void {
+export async function insertRow(db: SqlDb, table: string, row: Record<string, unknown>): Promise<void> {
   const columns = Object.keys(row);
   const values = columns.map((column) => toDbValue(row[column]));
   const columnList = columns.map(quoteIdentifier).join(", ");
   const placeholderList = columns.map(() => "?").join(", ");
-  db.prepare(`INSERT INTO ${table} (${columnList}) VALUES (${placeholderList})`).run(...values);
+  await db.prepare(`INSERT INTO ${table} (${columnList}) VALUES (${placeholderList})`).run(...values);
 }
 
 export function decodeRow<T>(row: Record<string, SqlValue>, jsonFields: readonly string[]): T {
@@ -46,21 +46,22 @@ export function decodeRow<T>(row: Record<string, SqlValue>, jsonFields: readonly
   return decoded as T;
 }
 
-export function getRow<T>(
+export async function getRow<T>(
   db: SqlDb,
   sql: string,
   params: SqlValue[],
   jsonFields: readonly string[] = [],
-): T | undefined {
-  const row = db.prepare(sql).get(...params);
+): Promise<T | undefined> {
+  const row = await db.prepare(sql).get(...params);
   return row === undefined ? undefined : decodeRow<T>(row, jsonFields);
 }
 
-export function listRows<T>(
+export async function listRows<T>(
   db: SqlDb,
   sql: string,
   params: SqlValue[] = [],
   jsonFields: readonly string[] = [],
-): T[] {
-  return db.prepare(sql).all(...params).map((row) => decodeRow<T>(row, jsonFields));
+): Promise<T[]> {
+  const rows = await db.prepare(sql).all(...params);
+  return rows.map((row) => decodeRow<T>(row, jsonFields));
 }

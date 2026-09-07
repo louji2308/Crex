@@ -39,13 +39,15 @@ const suite = schemas ? describe : describe.skip;
 suite("integration", () => {
   let db: SqlDb;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     db = createSqlDb(":memory:");
-    migrate(db);
+    await migrate(db);
   });
 
-  afterEach(() => {
-    db.close();
+  afterEach(async () => {
+    if (db.isOpen) {
+      await db.close();
+    }
   });
 
   beforeAll(async () => {
@@ -80,7 +82,7 @@ suite("integration", () => {
     }
   });
 
-  it("persists the full project-to-finding chain with real provenance", () => {
+  it("persists the full project-to-finding chain with real provenance", async () => {
     const repos = reposOf();
     const fx = fixturesOf();
     const projectRepository = new repos.ProjectRepository(db);
@@ -94,38 +96,38 @@ suite("integration", () => {
     const verificationFindingRepository = new repos.VerificationFindingRepository(db);
     const workflowStateRepository = new repos.WorkflowStateRepository(db);
 
-    const project = projectRepository.insert(fx.makeProject());
-    const sourceAsset = sourceAssetRepository.insert(fx.makeSourceAsset());
-    const segment = transcriptSegmentRepository.insert(fx.makeTranscriptSegment());
-    const claim = claimRepository.insert(fx.makeClaim());
-    const evidence = evidenceRepository.insert(fx.makeEvidence());
-    const generatedAsset = generatedAssetRepository.insert(fx.makeGeneratedAsset());
-    const component = generatedComponentRepository.insert(fx.makeGeneratedComponent());
-    const run = verificationRunRepository.insert(fx.makeVerificationRun());
-    const finding = verificationFindingRepository.insert(fx.makeVerificationFinding());
-    const workflow = workflowStateRepository.insert(fx.makeWorkflowState());
+    const project = await projectRepository.insert(fx.makeProject());
+    const sourceAsset = await sourceAssetRepository.insert(fx.makeSourceAsset());
+    const segment = await transcriptSegmentRepository.insert(fx.makeTranscriptSegment());
+    const claim = await claimRepository.insert(fx.makeClaim());
+    const evidence = await evidenceRepository.insert(fx.makeEvidence());
+    const generatedAsset = await generatedAssetRepository.insert(fx.makeGeneratedAsset());
+    const component = await generatedComponentRepository.insert(fx.makeGeneratedComponent());
+    const run = await verificationRunRepository.insert(fx.makeVerificationRun());
+    const finding = await verificationFindingRepository.insert(fx.makeVerificationFinding());
+    const workflow = await workflowStateRepository.insert(fx.makeWorkflowState());
 
-    expect(projectRepository.get(project.id)?.name).toBe("Budget Laptop Review");
-    expect(sourceAssetRepository.listByProject(project.id)).toHaveLength(1);
-    expect(transcriptSegmentRepository.listBySourceAsset(sourceAsset.id)).toHaveLength(1);
-    expect(claimRepository.listBySegment(segment.id)).toHaveLength(1);
-    expect(evidenceRepository.listByClaim(claim.id)).toHaveLength(1);
-    expect(generatedAssetRepository.listByProject(project.id)).toHaveLength(1);
-    expect(generatedComponentRepository.listByAsset(generatedAsset.id)).toHaveLength(1);
-    expect(verificationRunRepository.listByAsset(generatedAsset.id)).toHaveLength(1);
-    expect(verificationFindingRepository.listByRun(run.id)).toHaveLength(1);
-    expect(workflowStateRepository.listByProject(project.id)).toHaveLength(1);
+    expect((await projectRepository.get(project.id))?.name).toBe("Budget Laptop Review");
+    expect(await sourceAssetRepository.listByProject(project.id)).toHaveLength(1);
+    expect(await transcriptSegmentRepository.listBySourceAsset(sourceAsset.id)).toHaveLength(1);
+    expect(await claimRepository.listBySegment(segment.id)).toHaveLength(1);
+    expect(await evidenceRepository.listByClaim(claim.id)).toHaveLength(1);
+    expect(await generatedAssetRepository.listByProject(project.id)).toHaveLength(1);
+    expect(await generatedComponentRepository.listByAsset(generatedAsset.id)).toHaveLength(1);
+    expect(await verificationRunRepository.listByAsset(generatedAsset.id)).toHaveLength(1);
+    expect(await verificationFindingRepository.listByRun(run.id)).toHaveLength(1);
+    expect(await workflowStateRepository.listByProject(project.id)).toHaveLength(1);
 
-    const storedRun = verificationRunRepository.get(run.id);
+    const storedRun = await verificationRunRepository.get(run.id);
     expect(storedRun?.result).toBe("PASS");
     expect(storedRun?.engine).toBe("deterministic:rules");
     expect(storedRun?.finding_ids).toEqual([finding.id]);
 
-    const storedFinding = verificationFindingRepository.get(finding.id);
+    const storedFinding = await verificationFindingRepository.get(finding.id);
     expect(storedFinding?.severity).toBe("BLOCK");
     expect(storedFinding?.evidence_ranges).toEqual([{ start: 523, end: 557 }]);
 
-    const storedComponent = generatedComponentRepository.get(component.component_id);
+    const storedComponent = await generatedComponentRepository.get(component.component_id);
     expect(storedComponent?.content).toBe(component.content);
     expect(storedComponent?.verification_status).toBe("PASS");
   });

@@ -13,21 +13,21 @@ export class GeneratedComponentRepository {
     this.db = db;
   }
 
-  insert(component: GeneratedComponent): GeneratedComponent {
+  async insert(component: GeneratedComponent): Promise<GeneratedComponent> {
     const parsed = generatedComponentSchema.parse(component);
-    insertRow(this.db, TABLE, parsed);
+    await insertRow(this.db, TABLE, parsed);
     return parsed;
   }
 
-  get(id: string): GeneratedComponent | undefined {
+  async get(id: string): Promise<GeneratedComponent | undefined> {
     return getRow<GeneratedComponent>(this.db, `SELECT * FROM ${TABLE} WHERE component_id = ?`, [id], JSON_FIELDS);
   }
 
-  list(): GeneratedComponent[] {
+  async list(): Promise<GeneratedComponent[]> {
     return listRows<GeneratedComponent>(this.db, `SELECT * FROM ${TABLE} ORDER BY component_id`, [], JSON_FIELDS);
   }
 
-  listByAsset(assetId: string): GeneratedComponent[] {
+  async listByAsset(assetId: string): Promise<GeneratedComponent[]> {
     return listRows<GeneratedComponent>(
       this.db,
       `SELECT * FROM ${TABLE} WHERE asset_id = ? ORDER BY component_id`,

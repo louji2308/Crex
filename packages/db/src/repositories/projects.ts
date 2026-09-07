@@ -13,17 +13,17 @@ export class ProjectRepository {
     this.db = db;
   }
 
-  insert(project: Project): Project {
+  async insert(project: Project): Promise<Project> {
     const parsed = projectSchema.parse(project);
-    insertRow(this.db, TABLE, parsed);
+    await insertRow(this.db, TABLE, parsed);
     return parsed;
   }
 
-  get(id: string): Project | undefined {
+  async get(id: string): Promise<Project | undefined> {
     return getRow<Project>(this.db, `SELECT * FROM ${TABLE} WHERE id = ?`, [id], JSON_FIELDS);
   }
 
-  list(): Project[] {
+  async list(): Promise<Project[]> {
     return listRows<Project>(this.db, `SELECT * FROM ${TABLE} ORDER BY created_at`, [], JSON_FIELDS);
   }
 }

@@ -13,21 +13,21 @@ export class TranscriptSegmentRepository {
     this.db = db;
   }
 
-  insert(segment: TranscriptSegment): TranscriptSegment {
+  async insert(segment: TranscriptSegment): Promise<TranscriptSegment> {
     const parsed = transcriptSegmentSchema.parse(segment);
-    insertRow(this.db, TABLE, parsed);
+    await insertRow(this.db, TABLE, parsed);
     return parsed;
   }
 
-  get(id: string): TranscriptSegment | undefined {
+  async get(id: string): Promise<TranscriptSegment | undefined> {
     return getRow<TranscriptSegment>(this.db, `SELECT * FROM ${TABLE} WHERE id = ?`, [id], JSON_FIELDS);
   }
 
-  list(): TranscriptSegment[] {
+  async list(): Promise<TranscriptSegment[]> {
     return listRows<TranscriptSegment>(this.db, `SELECT * FROM ${TABLE} ORDER BY segment_index`, [], JSON_FIELDS);
   }
 
-  listBySourceAsset(sourceAssetId: string): TranscriptSegment[] {
+  async listBySourceAsset(sourceAssetId: string): Promise<TranscriptSegment[]> {
     return listRows<TranscriptSegment>(
       this.db,
       `SELECT * FROM ${TABLE} WHERE source_asset_id = ? ORDER BY segment_index`,

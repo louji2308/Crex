@@ -13,21 +13,21 @@ export class EvidenceRepository {
     this.db = db;
   }
 
-  insert(evidence: Evidence): Evidence {
+  async insert(evidence: Evidence): Promise<Evidence> {
     const parsed = evidenceSchema.parse(evidence);
-    insertRow(this.db, TABLE, parsed);
+    await insertRow(this.db, TABLE, parsed);
     return parsed;
   }
 
-  get(id: string): Evidence | undefined {
+  async get(id: string): Promise<Evidence | undefined> {
     return getRow<Evidence>(this.db, `SELECT * FROM ${TABLE} WHERE id = ?`, [id], JSON_FIELDS);
   }
 
-  list(): Evidence[] {
+  async list(): Promise<Evidence[]> {
     return listRows<Evidence>(this.db, `SELECT * FROM ${TABLE} ORDER BY created_at`, [], JSON_FIELDS);
   }
 
-  listByClaim(claimId: string): Evidence[] {
+  async listByClaim(claimId: string): Promise<Evidence[]> {
     return listRows<Evidence>(
       this.db,
       `SELECT * FROM ${TABLE} WHERE claim_id = ? ORDER BY created_at`,

@@ -13,21 +13,21 @@ export class VerificationRunRepository {
     this.db = db;
   }
 
-  insert(run: VerificationRun): VerificationRun {
+  async insert(run: VerificationRun): Promise<VerificationRun> {
     const parsed = verificationRunSchema.parse(run);
-    insertRow(this.db, TABLE, parsed);
+    await insertRow(this.db, TABLE, parsed);
     return parsed;
   }
 
-  get(id: string): VerificationRun | undefined {
+  async get(id: string): Promise<VerificationRun | undefined> {
     return getRow<VerificationRun>(this.db, `SELECT * FROM ${TABLE} WHERE id = ?`, [id], JSON_FIELDS);
   }
 
-  list(): VerificationRun[] {
+  async list(): Promise<VerificationRun[]> {
     return listRows<VerificationRun>(this.db, `SELECT * FROM ${TABLE} ORDER BY started_at`, [], JSON_FIELDS);
   }
 
-  listByAsset(assetId: string): VerificationRun[] {
+  async listByAsset(assetId: string): Promise<VerificationRun[]> {
     return listRows<VerificationRun>(
       this.db,
       `SELECT * FROM ${TABLE} WHERE asset_id = ? ORDER BY started_at`,

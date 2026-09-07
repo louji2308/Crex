@@ -13,21 +13,21 @@ export class GeneratedAssetRepository {
     this.db = db;
   }
 
-  insert(generatedAsset: GeneratedAsset): GeneratedAsset {
+  async insert(generatedAsset: GeneratedAsset): Promise<GeneratedAsset> {
     const parsed = generatedAssetSchema.parse(generatedAsset);
-    insertRow(this.db, TABLE, parsed);
+    await insertRow(this.db, TABLE, parsed);
     return parsed;
   }
 
-  get(id: string): GeneratedAsset | undefined {
+  async get(id: string): Promise<GeneratedAsset | undefined> {
     return getRow<GeneratedAsset>(this.db, `SELECT * FROM ${TABLE} WHERE id = ?`, [id], JSON_FIELDS);
   }
 
-  list(): GeneratedAsset[] {
+  async list(): Promise<GeneratedAsset[]> {
     return listRows<GeneratedAsset>(this.db, `SELECT * FROM ${TABLE} ORDER BY created_at`, [], JSON_FIELDS);
   }
 
-  listByProject(projectId: string): GeneratedAsset[] {
+  async listByProject(projectId: string): Promise<GeneratedAsset[]> {
     return listRows<GeneratedAsset>(
       this.db,
       `SELECT * FROM ${TABLE} WHERE project_id = ? ORDER BY created_at`,

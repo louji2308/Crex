@@ -26,21 +26,24 @@ function openMemoryDb(): SqlDb {
   return db;
 }
 
-function tableExists(db: SqlDb, name: string): boolean {
+async function tableExists(db: SqlDb, name: string): Promise<boolean> {
   return (
-    db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(name) !== undefined
+    (await db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(name)) !== undefined
   );
 }
 
-function indexExists(db: SqlDb, name: string): boolean {
+async function indexExists(db: SqlDb, name: string): Promise<boolean> {
   return (
-    db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = ?").get(name) !== undefined
+    (await db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = ?").get(name)) !== undefined
   );
 }
 
-afterEach(() => {
+afterEach(async () => {
   while (openDbs.length > 0) {
-    openDbs.pop()?.close();
+    const db = openDbs.pop();
+    if (db !== undefined && db.isOpen) {
+      await db.close();
+    }
   }
 });
 
@@ -53,47 +56,47 @@ function makeTempMigrationsDir(files: Record<string, string>): string {
 }
 
 describe("migrate", () => {
-  it("applies pending migrations to an in-memory database", () => {
+  it("applies pending migrations to an in-memory database", async () => {
     const db = openMemoryDb();
-    const result = migrate(db);
+    const result = await migrate(db);
 
     expect(result.applied).toEqual(["0001_init.sql"]);
     expect(result.skipped).toEqual([]);
 
     for (const table of TABLE_NAMES) {
-      expect(tableExists(db, table), `expected table ${table} to exist`).toBe(true);
+      expect(await tableExists(db, table), `expected table ${table} to exist`).toBe(true);
     }
 
     const migrationFile = listMigrations()[0];
     expect(migrationFile).toBeDefined();
-    const record = db.prepare("SELECT name, checksum, applied_at FROM _migrations").all();
+    const record = await db.prepare("SELECT name, checksum, applied_at FROM _migrations").all();
     expect(record).toHaveLength(1);
     expect(record[0]).toMatchObject({ name: "0001_init.sql", checksum: migrationFile?.checksum });
     expect(record[0]?.applied_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 
-  it("re-running migrate is a no-op", () => {
+  it("re-running migrate is a no-op", async () => {
     const db = openMemoryDb();
-    const first = migrate(db);
+    const first = await migrate(db);
     expect(first.applied).toEqual(["0001_init.sql"]);
 
-    const second = migrate(db);
+    const second = await migrate(db);
     expect(second.applied).toEqual([]);
     expect(second.skipped).toEqual(["0001_init.sql"]);
 
-    const count = db.prepare("SELECT COUNT(*) AS count FROM _migrations").get() as {
+    const count = (await db.prepare("SELECT COUNT(*) AS count FROM _migrations").get()) as {
       count: number;
     };
     expect(count.count).toBe(1);
 
     for (const table of TABLE_NAMES) {
-      expect(tableExists(db, table), `expected table ${table} to exist`).toBe(true);
+      expect(await tableExists(db, table), `expected table ${table} to exist`).toBe(true);
     }
   });
 
-  it("creates indexes on lookup paths", () => {
+  it("creates indexes on lookup paths", async () => {
     const db = openMemoryDb();
-    migrate(db);
+    await migrate(db);
     const expectedIndexes = [
       "idx_source_assets_project_id",
       "idx_transcript_segments_source_asset_id",
@@ -111,11 +114,11 @@ describe("migrate", () => {
       "idx_workflow_state_project_id",
     ];
     for (const index of expectedIndexes) {
-      expect(indexExists(db, index), `expected index ${index} to exist`).toBe(true);
+      expect(await indexExists(db, index), `expected index ${index} to exist`).toBe(true);
     }
   });
 
-  it("applies migrations in filename order from a synthetic directory", () => {
+  it("applies migrations in filename order from a synthetic directory", async () => {
     const db = openMemoryDb();
     const dir = makeTempMigrationsDir({
       "0001_a.sql": "CREATE TABLE IF NOT EXISTS tbl_a (id TEXT PRIMARY KEY);",
@@ -126,48 +129,48 @@ describe("migrate", () => {
       "plain.sql": "CREATE TABLE IF NOT EXISTS tbl_plain (id TEXT PRIMARY KEY);",
     });
 
-    const result = migrate(db, { migrationsDir: dir });
+    const result = await migrate(db, { migrationsDir: dir });
     expect(result.applied).toEqual(["0001_a.sql", "0002_b.sql", "0003_c.sql", "1000_d.sql"]);
-    expect(tableExists(db, "tbl_a")).toBe(true);
-    expect(tableExists(db, "tbl_b")).toBe(true);
-    expect(tableExists(db, "tbl_c")).toBe(true);
-    expect(tableExists(db, "tbl_d")).toBe(true);
-    expect(tableExists(db, "tbl_plain")).toBe(false);
+    expect(await tableExists(db, "tbl_a")).toBe(true);
+    expect(await tableExists(db, "tbl_b")).toBe(true);
+    expect(await tableExists(db, "tbl_c")).toBe(true);
+    expect(await tableExists(db, "tbl_d")).toBe(true);
+    expect(await tableExists(db, "tbl_plain")).toBe(false);
 
     rmSync(dir, { recursive: true, force: true });
   });
 
-  it("skips already-applied synthetic migrations", () => {
+  it("skips already-applied synthetic migrations", async () => {
     const db = openMemoryDb();
     const dir = makeTempMigrationsDir({
       "0001_a.sql": "CREATE TABLE IF NOT EXISTS tbl_a (id TEXT PRIMARY KEY);",
       "0002_b.sql": "CREATE TABLE IF NOT EXISTS tbl_b (id TEXT PRIMARY KEY);",
     });
 
-    const first = migrate(db, { migrationsDir: dir });
+    const first = await migrate(db, { migrationsDir: dir });
     expect(first.applied).toEqual(["0001_a.sql", "0002_b.sql"]);
 
-    const second = migrate(db, { migrationsDir: dir });
+    const second = await migrate(db, { migrationsDir: dir });
     expect(second.applied).toEqual([]);
     expect(second.skipped).toEqual(["0001_a.sql", "0002_b.sql"]);
 
     rmSync(dir, { recursive: true, force: true });
   });
 
-  it("rejects an applied migration whose checksum changed", () => {
+  it("rejects an applied migration whose checksum changed", async () => {
     const db = openMemoryDb();
     const dir = makeTempMigrationsDir({
       "0001_a.sql": "CREATE TABLE IF NOT EXISTS tbl_a (id TEXT PRIMARY KEY);",
     });
-    migrate(db, { migrationsDir: dir });
+    await migrate(db, { migrationsDir: dir });
 
     writeFileSync(join(dir, "0001_a.sql"), "CREATE TABLE IF NOT EXISTS tbl_a (id TEXT PRIMARY KEY, x TEXT);", "utf8");
 
-    expect(() => migrate(db, { migrationsDir: dir })).toThrow(/checksum/i);
+    await expect(migrate(db, { migrationsDir: dir })).rejects.toThrow(/checksum/i);
     rmSync(dir, { recursive: true, force: true });
   });
 
-  it("rolls back the whole batch when a migration fails", () => {
+  it("rolls back the whole batch when a migration fails", async () => {
     const db = openMemoryDb();
     const dir = makeTempMigrationsDir({
       "0001_a.sql": [
@@ -176,17 +179,29 @@ describe("migrate", () => {
       ].join("\n"),
     });
 
-    expect(() => migrate(db, { migrationsDir: dir })).toThrow(/failed to apply migration 0001_a\.sql/);
+    await expect(migrate(db, { migrationsDir: dir })).rejects.toThrow(/failed to apply migration 0001_a\.sql/);
 
-    expect(tableExists(db, "rollback_probe")).toBe(false);
-    expect(tableExists(db, "_migrations")).toBe(false);
+    expect(await tableExists(db, "rollback_probe")).toBe(false);
+    expect(await tableExists(db, "_migrations")).toBe(false);
 
     writeFileSync(join(dir, "0001_a.sql"), "CREATE TABLE IF NOT EXISTS rollback_probe (id TEXT PRIMARY KEY);", "utf8");
-    const retry = migrate(db, { migrationsDir: dir });
+    const retry = await migrate(db, { migrationsDir: dir });
     expect(retry.applied).toEqual(["0001_a.sql"]);
-    expect(tableExists(db, "rollback_probe")).toBe(true);
+    expect(await tableExists(db, "rollback_probe")).toBe(true);
 
     rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("applies migrations provided through an injected listMigrations provider", async () => {
+    const db = openMemoryDb();
+    const sql = "CREATE TABLE IF NOT EXISTS injected_tbl (id TEXT PRIMARY KEY);";
+    const result = await migrate(db, {
+      listMigrations: () => [
+        { name: "0001_injected.sql", path: "injected", checksum: "abc", sql },
+      ],
+    });
+    expect(result.applied).toEqual(["0001_injected.sql"]);
+    expect(await tableExists(db, "injected_tbl")).toBe(true);
   });
 
   it("getMigrationsPath resolves the package migrations directory", () => {
