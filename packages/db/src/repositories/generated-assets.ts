@@ -35,4 +35,11 @@ export class GeneratedAssetRepository {
       JSON_FIELDS,
     );
   }
+
+  async updateTitle(id: string, title: string, updatedAt: string): Promise<GeneratedAsset | undefined> {
+    await this.db
+      .prepare(`UPDATE ${TABLE} SET title = ?, updated_at = ? WHERE id = ?`)
+      .run(title, updatedAt, id);
+    return this.get(id);
+  }
 }

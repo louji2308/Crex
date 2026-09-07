@@ -249,6 +249,11 @@ Worker `vars` (defaults in `apps/worker/wrangler.jsonc`) cover AI provider confi
 | GET | `/audience/observations?projectId=` | List observations |
 | POST | `/audience/compute` | Deterministic aggregate → insights → recommendations |
 | GET | `/audience/context?projectId=` | Assembled audience context |
+| POST | `/repair` | Create deterministic PROPOSED repair actions for a verified asset (`{projectId, assetId, runId?}`) |
+| POST | `/repair/:actionId/apply` | Apply a proposed repair action (`{projectId}`) |
+| POST | `/reverify` | Apply all proposed repairs then re-run the verifier (`{projectId, assetId, runId?}`) |
+| GET | `/repair/actions?assetId=` | List repair actions for an asset |
+| GET | `/repair/actions?runId=` | List repair actions tied to a verification run |
 
 Without an AI key, `/ai/analyze` returns `503 AI_NOT_CONFIGURED` (honest gating); the configured path is covered end-to-end in tests with a stubbed fetch.
 
@@ -258,10 +263,10 @@ Without an AI key, `/ai/analyze` returns `503 AI_NOT_CONFIGURED` (honest gating)
 
 ```bash
 pnpm -r typecheck   # strict TS across all packages (11/11 green)
-pnpm -r test        # Vitest across all workspaces (583 tests)
+pnpm -r test        # Vitest across all workspaces (651 tests)
 ```
 
-Coverage by workspace: `@crex/schemas` 154, `@crex/tests` 106, `@crex/db` 66, `@crex/infra` 37, `@crex/ai` 36, `@crex/media` 29, `@crex/c2pa` 22, `@crex/core` 18, `@crex/audience` 12, `apps/worker` 103.
+Coverage by workspace: `@crex/schemas` 154, `@crex/tests` 106, `@crex/db` 66, `@crex/infra` 37, `@crex/ai` 36, `@crex/media` 29, `@crex/c2pa` 22, `@crex/core` 18, `@crex/audience` 12, `apps/worker` 171.
 
 ---
 
