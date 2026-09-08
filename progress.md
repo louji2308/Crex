@@ -6,7 +6,7 @@
 **Date:** September 8, 2026
 **Hackathon Deadline:** September 8, 2026 - 8:00 AM ET
 
-**Converged `main` (via `w17-19/hardening` + W10-12):** W17 (`agent/w17/security`), W18 (`agent/w18/testing`), and W19 (`agent/w19/deploy`) merged with the W10 repair/W11 re-verification/W12 release-passport stream. Full monorepo validated on the merged tree: `pnpm -r typecheck` 11/11, `pnpm -r test` 684 green across 11 workspaces (incl. previously-gated `@crex/c2pa` 21/21), adversarial benchmarks 33/33, `wrangler deploy --dry-run` OK (~363 KiB).
+**Converged `main` (via `w17-19/hardening` + W10-12):** W17 (`agent/w17/security`), W18 (`agent/w18/testing`), and W19 (`agent/w19/deploy`) merged with the W10 repair/W11 re-verification/W12 release-passport stream. Full monorepo validated on the converged tree — final state on `w20/final`: `pnpm -r typecheck` 12/12 green, `pnpm -r test` **742 green across 11 workspaces** (incl. previously-gated `@crex/c2pa` 21/21 and the 33 adversarial benchmarks as a workspace member), `wrangler deploy --dry-run` OK (~363 KiB).
 
 **Wave 3 committed and pushed on main:**
 - `1c9b3e0` - source upload sessions (migration 0004), asset lifecycle transitions (SOURCE_STATE_TRANSITIONS), `@crex/media` inspection package.
