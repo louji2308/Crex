@@ -410,13 +410,14 @@ Run: `pnpm -r typecheck` (11/11 green) / `pnpm -r test` (717 green across 11 wor
 
 **LIVE + VERIFIED.** `apps/worker` deployed with bindings (D1 `crex`, R2 `crex-media`, Workflows `crex-source-to-release`, AI `vars`).
 - Deployed URL: https://crex-worker.loujanb2008.workers.dev — live `/health` returns 200 `{ok:true, bindings:{db:true, r2:true, workflow:true}}` (re-verified this session).
-- Active deployment: version `1afc0f7f-b7ca-4791-a8be-40460075d9f3` (OpenRouter build) at 100%.
+- Active deployment: version `15cff4ae-2fd5-4abd-8246-7d1ae6282479` (converged W10-12 + W17-19 build) at 100%.
 - Live worker secrets: `NVIDIA_API_KEY`, `MISTRAL_API_KEY`, `OPENROUTER_API_KEY` (via `wrangler secret list`).
-- Remote D1 `crex` (`b01526fc-40b4-4024-8616-b2fb6099d94d`): migrations 0001-0011 applied remotely (`wrangler d1 migrations list crex --remote` = "No migrations to apply!"), all 11 `packages/db/migrations` files present.
+- Remote D1 `crex` (`b01526fc-40b4-4024-8616-b2fb6099d94d`): migrations 0001-0013 applied remotely (0012_repair.sql + 0013_release_passports.sql applied this session); `repair_actions` + `release_passports` tables verified present remotely.
 - R2 `crex-media` bucket exists; live e2e uploaded a blob and the source ingested to READY (remote `source_assets` row read back READY, 998 B, checksum match).
 - Live AI verified: `/ai/analyze` -> NVIDIA EOL -> OpenRouter fallback -> HTTP 201; `ai_outputs` row (provider openrouter, fallback_used 1) persisted to remote D1.
+- Live new-endpoint verification (this session, converged build): `GET /repair/actions` returns 400 `INVALID_REPAIR_REQUEST` (params validated), `GET /passports?projectId=` returns 404 `PROJECT_NOT_FOUND`, CORS `OPTIONS` preflight returns 204.
 - Local tooling still works: `wrangler deploy --dry-run` passes; `wrangler dev` boots with `/health` all bindings active.
-- Decision: `decision-workflow-migrations.md` â€” migrations run wrangler-side, not in-app.
+- Decision: `decision-workflow-migrations.md` — migrations run wrangler-side, not in-app.
 
 **W19 Deployment / Production Readiness (branch `agent/w19/deploy`, integrated via `w17-19/hardening`):**
 - Runbook: `docs/implementation/deploy-runbook.md` (SAFE vs DESTRUCTIVE command table, rollback, health checks, frontend Pages path, CORS).
