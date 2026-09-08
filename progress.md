@@ -6,7 +6,7 @@
 **Date:** September 7, 2026
 **Hackathon Deadline:** September 8, 2026 - 8:00 AM ET
 
-**Integration branch `w17-19/hardening`:** W17 (`agent/w17/security`), W18 (`agent/w18/testing`), and W19 (`agent/w19/deploy`) merged. Full monorepo validated: `pnpm -r typecheck` 11/11, `pnpm -r test` 658 green (incl. previously-gated `@crex/c2pa` 21/21), adversarial benchmarks 33/33, `wrangler deploy --dry-run` OK (362.76 KiB).
+**Converged `main` (via `w17-19/hardening` + W10-12):** W17 (`agent/w17/security`), W18 (`agent/w18/testing`), and W19 (`agent/w19/deploy`) merged with the W10 repair/W11 re-verification/W12 release-passport stream. Full monorepo validated on the merged tree: `pnpm -r typecheck` 11/11, `pnpm -r test` 684 green across 11 workspaces (incl. previously-gated `@crex/c2pa` 21/21), adversarial benchmarks 33/33, `wrangler deploy --dry-run` OK (~363 KiB).
 
 **Wave 3 committed and pushed on main:**
 - `1c9b3e0` - source upload sessions (migration 0004), asset lifecycle transitions (SOURCE_STATE_TRANSITIONS), `@crex/media` inspection package.
@@ -22,7 +22,7 @@
 - Live proof through the deployed worker: seed project -> POST /sources 201 -> PUT blob 200 VALID (real R2 + D1 insert) -> poll VALID -> POST /workflows/source-to-release -> source READY ~2s; remote D1 `source_assets` row read back READY (998 B, checksum match).
 - Live AI proof: POST /ai/analyze -> NVIDIA EOL -> OpenRouter fallback -> HTTP 201; `AiOutput` persisted to remote D1 `ai_outputs` (provider openrouter, fallback_used 1).
 
-**Integration status:** Wave 3 + Wave 6/7 committed and pushed. OpenRouter provider live (NVIDIA -> OpenRouter) committed and pushed (`19eb3da`). **Wave 13 provenance foundation COMPLETE + TESTED; Wave 14 audience IMPLEMENTED + TESTED.** **Monorepo green**: `pnpm -r typecheck` all pass (11/11); `pnpm -r test` all pass (668 tests across 11 test-running workspaces). The pre-existing `apps/web` scaffold typecheck error from `45c3de2` is FIXED (ProjectForm TS2345), and `apps/web` `vitest run` now exits 0 via `passWithNoTests`. A flaky `packages/db` timestamp race in `repositories.test.ts` was root-caused (frozen fixture timestamps vs insert-time `toISOString()`) and fixed. The `packages/db` `understandings.ts` TS2322 (sibling Wave 4 file, `this.get(id)!` inside async fn) was fixed and typecheck is fully green. The Wave 13 frozen-registry count mismatch in `@crex/tests` was resolved: `FROZEN_NAMES`/conformance `CASES` now include `ProvenanceRecord`; `@crex/tests` is 106/106. `packages/infra` `d1.test.ts` `TABLE_NAMES` updated for the sibling-added tables (transcripts, semantic_sections, understandings, provenance_records, audience_*, repair_actions, release_passports); infra 37/37. **C2PA signed path is now REAL on this build machine**: `c2pa-python==0.37.10` installed, a real root→intermediate→leaf EC signing chain produced signed media, and the integration suite exercises embed + plain verify (state `Valid`, `signature_trusted=false`) + anchored verify (`--trust-anchors` → state `Trusted`, `signature_trusted=true`). `@crex/c2pa` suite is 21/21 (manifest 6, verify 11, python-integration 4) with the signed path executing, not skipping.
+**Integration status:** Wave 3 + Wave 6/7 committed and pushed. OpenRouter provider live (NVIDIA -> OpenRouter) committed and pushed (`19eb3da`). **Wave 13 provenance foundation COMPLETE + TESTED; Wave 14 audience IMPLEMENTED + TESTED.** **Monorepo green**: `pnpm -r typecheck` all pass (11/11); `pnpm -r test` all pass (684 tests across 11 test-running workspaces). The pre-existing `apps/web` scaffold typecheck error from `45c3de2` is FIXED (ProjectForm TS2345), and `apps/web` `vitest run` now exits 0 via `passWithNoTests`. A flaky `packages/db` timestamp race in `repositories.test.ts` was root-caused (frozen fixture timestamps vs insert-time `toISOString()`) and fixed. The `packages/db` `understandings.ts` TS2322 (sibling Wave 4 file, `this.get(id)!` inside async fn) was fixed and typecheck is fully green. The Wave 13 frozen-registry count mismatch in `@crex/tests` was resolved: `FROZEN_NAMES`/conformance `CASES` now include `ProvenanceRecord`; `@crex/tests` is 106/106. `packages/infra` `d1.test.ts` `TABLE_NAMES` updated for the sibling-added tables (transcripts, semantic_sections, understandings, provenance_records, audience_*, repair_actions, release_passports); infra 37/37. **C2PA signed path is now REAL on this build machine**: `c2pa-python==0.37.10` installed, a real root→intermediate→leaf EC signing chain produced signed media, and the integration suite exercises embed + plain verify (state `Valid`, `signature_trusted=false`) + anchored verify (`--trust-anchors` → state `Trusted`, `signature_trusted=true`). `@crex/c2pa` suite is 21/21 (manifest 6, verify 11, python-integration 4) with the signed path executing, not skipping.
 
 **W17/W18/W19 hardening waves COMPLETE + INTEGRATED on `w17-19/hardening`:**
 
@@ -387,7 +387,7 @@ Then Wave 4: video understanding (planning).
 
 ## Test Status
 
-**Monorepo tests all pass** across 11 test-running workspaces:
+**Monorepo tests all pass (684 total)** across 11 test-running workspaces:
 - `@crex/schemas` - 154 (schema strictness, in/out conventions, JSON round-trip, api/domain, ai-tasks, audience contracts)
 - `@crex/tests` — 106 (contract conformance incl. `ProvenanceRecord`, cross-package db integration)
 - `@crex/audience` - 12 (deterministic aggregation, insights, recommendations)
@@ -395,14 +395,14 @@ Then Wave 4: video understanding (planning).
 - `@crex/infra` — 37 (D1/R2 adapters on miniflare/workerd emulation; table list covers all 24 tables incl. repair_actions + release_passports)
 - `@crex/ai` — 36 (NVIDIA/Mistral/OpenRouter clients, fallback, validation)
 - `@crex/core` — 20 (config, API envelopes, workflow transitions/terminal-phase immutability, errors)
-- `apps/worker` - 188 (HTTP routes, error model, ai-output module, sources routes + UI, source-ingestion 8 tests incl. workflow-to-READY, `/ai/analyze` via stubbed fetch, wired-task gating, NVIDIA->OpenRouter fallback, audience API routes, provenance routes 14, video-understanding routes, repair + re-verification 9 tests, release passport 17 tests, W17 security/adversarial tests, CORS 7)
+- `apps/worker` - 202 (17 files: HTTP routes, error model, ai-output module, sources routes + UI, source-ingestion, `/ai/analyze` via stubbed fetch, wired-task gating, NVIDIA->OpenRouter fallback, audience API routes, provenance routes, video-understanding routes, repair + re-verification 9, release passport 17, W17 security/adversarial, CORS 7; hardening baseline 176 + 9 + 17)
 - `@crex/media` - 29 (incremental SHA-256, MP4 probe, validation, fixtures)
 - `@crex/c2pa` - 21 (manifest build, 5-state verify, python CLI invoke, real signed embed+verify integration with openssl-generated chain)
 - `apps/web` - 0 (no tests written yet; `vitest run` exits 0 via `passWithNoTests`)
 
 **Adversarial benchmarks (run from `benchmarks/`):** 33/33 passing — all cover per verified engine behavior (`apps/worker/src/pipelines/verification.ts` emits BLOCK for missing required sponsor phrases/disclosures/URLs/timing constraints).
 
-Run: `pnpm -r typecheck` (11/11 green) / `pnpm -r test` (658 green, exit 0).
+Run: `pnpm -r typecheck` (11/11 green) / `pnpm -r test` (684 green, exit 0).
 
 ---
 
@@ -488,7 +488,7 @@ Wave 14 audience contracts (defined in `packages/schemas/src/audience.ts`, deep-
 | W15 | End-to-End Integration | NOT STARTED |
 | W16 | Adversarial Benchmark | COMPLETE (33/33 passing; 4 pre-existing fixture-expectation failures fixed in W18) |
 | W17 | Security + Reliability | **COMPLETE + INTEGRATED** (`agent/w17/security` → `w17-19/hardening`) — audit, fixes (terminal-phase guard, error redaction, content-length 413 both directions, workflow GET UUID validation, SQL-scoped verification listing), regression tests, `docs/security/threat-model.md` |
-| W18 | Full Automated Testing | **COMPLETE + INTEGRATED** (`agent/w18/testing` → `w17-19/hardening`) — benchmark fixture alignment (33/33), real signed c2pa deterministic path resolving the test gate (21/21), `pnpm -r test` fully green (658 tests) |
+| W18 | Full Automated Testing | **COMPLETE + INTEGRATED** (`agent/w18/testing` → `w17-19/hardening`) - benchmark fixture alignment (33/33), real signed c2pa deterministic path resolving the test gate (21/21), `pnpm -r test` fully green on the converged tree (684 tests) |
 | W19 | Deployment | **COMPLETE + INTEGRATED** (`agent/w19/deploy` → `w17-19/hardening`) — runbook, CORS layer, root deploy/migrate scripts, env docs, CI workflow; `wrangler deploy --dry-run` verified |
 | W20 | Judge-Path Hardening | NOT STARTED |
 | W21 | Final Scope Freeze | NOT STARTED |
