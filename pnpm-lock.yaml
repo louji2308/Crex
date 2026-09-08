@@ -103,6 +103,25 @@ importers:
         specifier: ^4.129.0
         version: 4.129.0
 
+  benchmarks:
+    dependencies:
+      '@crex/schemas':
+        specifier: workspace:*
+        version: link:../packages/schemas
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@types/node':
+        specifier: ^26.4.1
+        version: 26.4.1
+      typescript:
+        specifier: ^5.0.4
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.11
+        version: 4.1.11(@types/node@26.4.1)(vite@7.3.6(@types/node@26.4.1)(jiti@1.21.7))
+
   packages/ai:
     dependencies:
       '@crex/core':

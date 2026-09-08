@@ -293,10 +293,10 @@ Without an AI key, `/ai/analyze` returns `503 AI_NOT_CONFIGURED` (honest gating)
 
 ```bash
 pnpm -r typecheck   # strict TS across all packages (11/11 green)
-pnpm -r test        # Vitest across all workspaces (684 tests)
+pnpm -r test        # Vitest across all workspaces (717 tests incl. 33 adversarial benchmarks)
 ```
 
-Coverage by workspace: `@crex/schemas` 154, `@crex/tests` 106, `@crex/db` 67, `@crex/infra` 37, `@crex/ai` 36, `@crex/media` 29, `@crex/c2pa` 21, `@crex/core` 20, `@crex/audience` 12, `apps/worker` 202 (17 files: 176 hardening baseline incl. security/adversarial + CORS, +9 Repair/Re-verify, +17 Release Passport).
+Coverage by workspace: `@crex/schemas` 154, `@crex/tests` 106, `@crex/db` 67, `@crex/infra` 37, `@crex/ai` 36, `@crex/media` 29, `@crex/c2pa` 21, `@crex/core` 20, `@crex/audience` 12, `apps/worker` 202 (17 files: 176 hardening baseline incl. security/adversarial + CORS, +9 Repair/Re-verify, +17 Release Passport), `benchmarks` 33 adversarial. **Grand total: 717.**
 
 ---
 

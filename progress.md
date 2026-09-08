@@ -6,7 +6,7 @@
 **Date:** September 7, 2026
 **Hackathon Deadline:** September 8, 2026 - 8:00 AM ET
 
-**Converged `main` (via `w17-19/hardening` + W10-12):** W17 (`agent/w17/security`), W18 (`agent/w18/testing`), and W19 (`agent/w19/deploy`) merged with the W10 repair/W11 re-verification/W12 release-passport stream. Full monorepo validated on the merged tree: `pnpm -r typecheck` 11/11, `pnpm -r test` 684 green across 11 workspaces (incl. previously-gated `@crex/c2pa` 21/21), adversarial benchmarks 33/33, `wrangler deploy --dry-run` OK (~363 KiB).
+**Converged `main` (via `w17-19/hardening` + W10-12):** W17 (`agent/w17/security`), W18 (`agent/w18/testing`), and W19 (`agent/w19/deploy`) merged with the W10 repair/W11 re-verification/W12 release-passport stream. Full monorepo validated on the merged tree: `pnpm -r typecheck` 11/11, `pnpm -r test` 717 green across 11 workspaces (incl. previously-gated `@crex/c2pa` 21/21 and the 33 adversarial benchmarks), `wrangler deploy --dry-run` OK (~363 KiB).
 
 **Wave 3 committed and pushed on main:**
 - `1c9b3e0` - source upload sessions (migration 0004), asset lifecycle transitions (SOURCE_STATE_TRANSITIONS), `@crex/media` inspection package.
@@ -387,7 +387,7 @@ Then Wave 4: video understanding (planning).
 
 ## Test Status
 
-**Monorepo tests all pass (684 total)** across 11 test-running workspaces:
+**Monorepo tests all pass (717 total incl. 33 adversarial benchmarks)** across 11 test-running workspaces (10 app/package workspaces + `benchmarks`):
 - `@crex/schemas` - 154 (schema strictness, in/out conventions, JSON round-trip, api/domain, ai-tasks, audience contracts)
 - `@crex/tests` — 106 (contract conformance incl. `ProvenanceRecord`, cross-package db integration)
 - `@crex/audience` - 12 (deterministic aggregation, insights, recommendations)
@@ -400,9 +400,9 @@ Then Wave 4: video understanding (planning).
 - `@crex/c2pa` - 21 (manifest build, 5-state verify, python CLI invoke, real signed embed+verify integration with openssl-generated chain)
 - `apps/web` - 0 (no tests written yet; `vitest run` exits 0 via `passWithNoTests`)
 
-**Adversarial benchmarks (run from `benchmarks/`):** 33/33 passing — all cover per verified engine behavior (`apps/worker/src/pipelines/verification.ts` emits BLOCK for missing required sponsor phrases/disclosures/URLs/timing constraints).
+**Adversarial benchmarks (`benchmarks/`, now part of the `pnpm -r test` workspace run):** 33/33 passing — all assert the expected BLOCK/REVIEW/REQUIRES_AI severity per verified engine behavior (emits BLOCK for missing required sponsor phrases/disclosures/URLs/timing constraints).
 
-Run: `pnpm -r typecheck` (11/11 green) / `pnpm -r test` (684 green, exit 0).
+Run: `pnpm -r typecheck` (11/11 green) / `pnpm -r test` (717 green across 11 workspaces incl. the 33 benchmarks; exit 0).
 
 ---
 
@@ -488,7 +488,7 @@ Wave 14 audience contracts (defined in `packages/schemas/src/audience.ts`, deep-
 | W15 | End-to-End Integration | NOT STARTED |
 | W16 | Adversarial Benchmark | COMPLETE (33/33 passing; 4 pre-existing fixture-expectation failures fixed in W18) |
 | W17 | Security + Reliability | **COMPLETE + INTEGRATED** (`agent/w17/security` → `w17-19/hardening`) — audit, fixes (terminal-phase guard, error redaction, content-length 413 both directions, workflow GET UUID validation, SQL-scoped verification listing), regression tests, `docs/security/threat-model.md` |
-| W18 | Full Automated Testing | **COMPLETE + INTEGRATED** (`agent/w18/testing` → `w17-19/hardening`) - benchmark fixture alignment (33/33), real signed c2pa deterministic path resolving the test gate (21/21), `pnpm -r test` fully green on the converged tree (684 tests) |
+| W18 | Full Automated Testing | **COMPLETE + INTEGRATED** (`agent/w18/testing` → `w17-19/hardening`) - benchmark fixture alignment (33/33), real signed c2pa deterministic path resolving the test gate (21/21), `pnpm -r test` fully green on the converged tree (717 tests incl. 33 benchmarks) |
 | W19 | Deployment | **COMPLETE + INTEGRATED** (`agent/w19/deploy` → `w17-19/hardening`) — runbook, CORS layer, root deploy/migrate scripts, env docs, CI workflow; `wrangler deploy --dry-run` verified |
 | W20 | Judge-Path Hardening | NOT STARTED |
 | W21 | Final Scope Freeze | NOT STARTED |
