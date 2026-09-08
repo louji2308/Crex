@@ -97,21 +97,21 @@ Deployment: NONE
 | W1 | Shared Contracts + Project Foundation | COMPLETE (`c305fe4`; 13 contracts + ApiError) |
 | W2 | Real Infrastructure Foundation | COMPLETE (infra + AI + worker shell; D1/R2 provisioned, worker deployed live) |
 | W3 | Source Ingestion Pipeline | COMPLETE + VERIFIED LIVE (upload → R2 → D1 → media validation → workflow READY) |
-| W4 | Video Understanding | NOT STARTED |
-| W5 | Evidence Graph | NOT STARTED |
+| W4 | Video Understanding | COMPLETE + TESTED (in-process MP4 audio-track extraction → STT transcript, Mistral Voxtral primary → OpenRouter whisper fallback → semantic sections; migration 0007–0009, worker `/ai/understand` + `/ai/transcript` routes) |
+| W5 | Evidence Graph | COMPLETE + TESTED (claim + evidence extraction per understanding, grounded in transcripts/segments/sections; claims + evidence tables in migration `0001`, worker `/evidence-graph` routes) |
 | W6 | Creator Intent Contract | COMPLETE (`Constraint`, migration 0005, repository, tests) |
 | W7 | Sponsor Contract | COMPLETE (`SponsorRequirement`, migration 0006, repository, tests) |
-| W8 | Content Generation Engine | NOT STARTED |
-| W9 | Independent Verification Engine | NOT STARTED |
-| W10 | Repair Engine | NOT STARTED |
-| W11 | Re-Verification | NOT STARTED |
-| W12 | Release Passport | NOT STARTED |
+| W8 | Content Generation Engine | COMPLETE + TESTED (evidence-grounded generation via `@crex/ai` with schema validation; `GeneratedAsset`/`GeneratedComponent` persistence, worker `/generate` routes) |
+| W9 | Independent Verification Engine | COMPLETE + TESTED (rule-based + semantic checks → persisted `VerificationRun`/`VerificationFinding`; worker `/verify` + `/verify/findings/:runId` routes) |
+| W10 | Repair Engine | COMPLETE + TESTED (deterministic PROPOSED repair actions; worker `/repair` routes) |
+| W11 | Re-Verification | COMPLETE + TESTED (apply repairs → re-run verifier; worker `/reverify` route) |
+| W12 | Release Passport | COMPLETE + TESTED (frozen snapshot, migration 0013, proof-maturity-gated `release_status`) |
 | W13 | Provenance Metadata | COMPLETE + TESTED (contract frozen, migration 0010, `@crex/c2pa`, worker `/provenance/*`; real signed embed/verify via `c2pa-python==0.37.10` + openssl EC chain — plain = `Valid`/untrusted, `--trust-anchors` = `Trusted`) |
 | W14 | Audience Context + Learning | IMPLEMENTED + TESTED (`@crex/audience`, migration 0011, worker `/audience/*`) |
 | W15 | End-to-End Integration | NOT STARTED |
 | W16 | Adversarial Benchmark | COMPLETE (33/33 passing; 4 fixture-expectation fixes in W18) |
 | W17 | Security + Reliability | **COMPLETE + INTEGRATED** — terminal-phase guard, error redaction, 413 both directions, workflow-GET UUID validation, SQL-scoped verification listing, regression tests, `docs/security/threat-model.md` |
-| W18 | Full Automated Testing | **COMPLETE + INTEGRATED** — benchmark fixtures aligned to engine BLOCK behavior (33/33), real signed c2pa deterministic path (21/21), `pnpm -r test` fully green (658) |
+| W18 | Full Automated Testing | **COMPLETE + INTEGRATED** — benchmark fixtures aligned to engine BLOCK behavior (33/33), real signed c2pa deterministic path (21/21), `pnpm -r test` fully green (684) |
 | W19 | Deployment | **COMPLETE + INTEGRATED** — runbook, CORS layer, root deploy/migrate scripts, env docs, CI workflow; dry-run verified |
 | W20 | Judge-Path Hardening | NOT STARTED |
 | W21 | Final Scope Freeze | NOT STARTED |
