@@ -22,7 +22,7 @@ modifies or deletes live state, **do not run it**.
 | Account | `Loujanb2008@gmail.com's Account` (`b72d7acfa8c087d018a7cf59a36a3ab1`) | `wrangler whoami` |
 | Worker | `crex-worker` → https://crex-worker.loujanb2008.workers.dev | `wrangler deploy --dry-run` |
 | D1 database | `crex` (`b01526fc-40b4-4024-8616-b2fb6099d94d`) | `wrangler d1 info` |
-| D1 migrations | `0001`–`0011` all applied **remote** | `wrangler d1 migrations list crex --remote` |
+| D1 migrations | `0001`–`0011` verified applied **remote** (2026-09-07); `0012_repair.sql`, `0013_release_passports.sql` exist locally — remote-apply state not re-verified in W21 audit | `wrangler d1 migrations list crex --remote` (2026-09-07) |
 | R2 bucket | `crex-media` (creation `2026-09-07T11:16:57Z`) | `wrangler r2 bucket list` |
 | Worker secrets | `NVIDIA_API_KEY`, `MISTRAL_API_KEY`, `OPENROUTER_API_KEY` | `wrangler secret list` |
 | Bundled size | 360.79 KiB upload / 67.15 KiB gzip | `wrangler deploy --dry-run` |
@@ -65,8 +65,11 @@ does **not** touch source object bytes.
 
 The D1 binding (`DB → crex`) references `migrations_dir:
 ../../packages/db/migrations`. The single schema source of truth is
-`packages/db/migrations/*.sql`; there are **11 migrations** (`0001_init.sql` …
-`0011_audience.sql`), all applied to the remote database (verified 2026-09-07).
+`packages/db/migrations/*.sql`; there are **13 migrations** (`0001_init.sql` …
+`0013_release_passports.sql`). `0001`–`0011` were verified applied to the remote
+database on 2026-09-07; `0012_repair.sql` and `0013_release_passports.sql` are
+additive files that are pending remote apply unless already applied — run
+`wrangler d1 migrations list crex --remote` to confirm before shipping.
 
 Migration command reference (the `--migrations-dir` is implied by wrangler.jsonc):
 
@@ -80,7 +83,7 @@ Migration command reference (the `--migrations-dir` is implied by wrangler.jsonc
 | `wrangler d1 delete crex` / reset | DESTRUCTIVE / AVOID | Destroys all production data. Never used. |
 
 **Do not** edit an already-applied migration file; create the next numbered file
-(`0012_*.sql`) instead.
+(`0014_*.sql`) instead.
 
 ---
 
@@ -143,6 +146,7 @@ required credentials only.
 | `OPENROUTER_BASE_URL` / `OPENROUTER_MODEL` | var | no (defaults in code) | `openrouter.ai/api/v1`, `meta-llama/llama-3.3-70b-instruct` |
 | `AI_TIMEOUT_MS`, `AI_MAX_RETRIES`, `AI_RETRY_BASE_DELAY_MS` | var | no (defaults in code) | 60000 / 2 / 1000 |
 | `SOURCE_MAX_SIZE_BYTES` | var | no (default) | 104857600 (100 MiB) |
+| `STT_PRIMARY_PROVIDER`, `STT_MISTRAL_MODEL`, `STT_OPENROUTER_MODEL` | var (optional; not in `wrangler.jsonc`) | no (defaults in code) | `mistral` / `voxtral-mini-2505` / `openai/whisper-large-v3`; used by `POST /ai/understand` to override the STT provider/model |
 
 Both `.env.example` and `.dev.vars.example` list **names only — never values** for
 secrets. The secret values are held in the Cloudflare dashboard/`wrangler` secret
@@ -159,6 +163,9 @@ NVIDIA_API_KEY
 MISTRAL_API_KEY
 OPENROUTER_API_KEY
 ```
+
+Speech-to-text for `POST /ai/understand` reuses `MISTRAL_API_KEY` /
+`OPENROUTER_API_KEY` — no separate STT secret is required.
 
 Set/update one interactively (SAFE, updates in place, does not touch other state):
 
@@ -235,11 +242,11 @@ If stricter origin allowlisting is ever needed, replace the echo with a checked
 Local + remote procedure:
 
 ```
-# 1. Add the next migration file: packages/db/migrations/0012_<name>.sql
+# 1. Add the next migration file: packages/db/migrations/0014_<name>.sql
 # 2. Local (SAFE): verify against the local dev D1
 pnpm migrate:local            # wrangler d1 migrations apply crex --local
 # 3. Diff/pending check (SAFE, read-only):
-npx wrangler d1 migrations list crex --remote          # shows only 0012 pending
+npx wrangler d1 migrations list crex --remote          # confirm the pending set (0012/0013 unless already applied)
 # 4. Production (SAFE only if step 3 shows an additive pending set):
 pnpm migrate:remote           # wrangler d1 migrations apply crex --remote
 # 5. Verify (SAFE):
@@ -271,7 +278,7 @@ runs fine against the newer schema (new columns are optional/NULLable by design)
 
 There is **no destructive rollback**. The strategy is **additive forward
 migrations**: never delete production rows/columns; to undo an unwanted migration,
-write a new forward migration (`0012_*`) that reverts the data change (e.g. backfill
+write a new forward migration (`0014_*`) that reverts the data change (e.g. backfill
 values) rather than dropping anything. `workflow_state`, `source_assets`,
 `ai_outputs`, etc. are all append/update tables — a mistaken state transition is
 repaired with a corrective update, not a table reset.
@@ -338,8 +345,8 @@ persisted to `workflow_state.phase = FAILED` with an error JSON — check via
 
 `.github/workflows/ci.yml` runs `pnpm install --frozen-lockfile` +
 `pnpm -r typecheck` + `pnpm -r test` on push to `main` and on PRs. It **does not
-deploy and contains no secrets**. Known caveat: `packages/c2pa` typecheck/test may
-remain red until the W17/W18 c2pa work lands; that is tracked outside this runbook.
-A future deploy job should require CI green and then run
-`wrangler deploy` (equivalent of `pnpm deploy:worker`) as a tagged action — do not
-store credentials in the repo.
+deploy and contains no secrets**. Caveat: the adversarial benchmark suite
+(`benchmarks/`, 33 cases) is not part of the pnpm workspaces, so CI does not cover
+it — it is run manually (33/33 in W18). A future deploy job should require CI green
+and then run `wrangler deploy` (equivalent of `pnpm deploy:worker`) as a tagged
+action — do not store credentials in the repo.
