@@ -4,12 +4,12 @@
 
 ## Current Status
 
-**Phase:** Wave 3 — Source Ingestion Pipeline (COMPLETE + VERIFIED LIVE) + **Wave 12 Release Passport (IMPLEMENTED + TESTED)** + **Wave 13 Provenance Foundation (COMPLETE + TESTED)** + **Wave 14 Audience Context (IMPLEMENTED + TESTED)** + Live D1 provisioning COMPLETE
-**Date:** September 7, 2026
+**Phase:** Wave 4 — Video Understanding (IMPLEMENTED + TESTED) + **Wave 5 Evidence Graph (IMPLEMENTED + TESTED)** + **Wave 8 Content Generation (IMPLEMENTED + TESTED)** + **Wave 9 Verification (IMPLEMENTED + TESTED)** — alongside Wave 3 Source Ingestion (COMPLETE + VERIFIED LIVE), Wave 6/7 Creator-Intent/Sponsor contracts, Wave 10/11 Repair + Re-verification, **Wave 12 Release Passport (IMPLEMENTED + TESTED)**, **Wave 13 Provenance Foundation (COMPLETE + TESTED)**, **Wave 14 Audience Context (IMPLEMENTED + TESTED)** + Live D1 provisioning COMPLETE
+**Date:** September 8, 2026
 
 The pnpm monorepo foundation is complete: **18 frozen contract schemas** (`@crex/schemas`), a D1-compatible SQLite data layer (`@crex/db`), core foundation utilities (`@crex/core`), NVIDIA→OpenRouter AI adapter with fallback (`@crex/ai`), D1/R2 infrastructure adapters (`@crex/infra`), a media inspection package (`@crex/media`), a provenance package (`@crex/c2pa`), an audience package (`@crex/audience`), and a real Cloudflare Worker (**`apps/worker`**) with D1/R2/Workflows bindings.
 
-Wave 3 implements the **source ingestion pipeline**: upload → R2 → D1 → media validation → `SourceAsset` → workflow ingestion → `READY`, plus a minimal upload UI. Wave 2's infra/AI groundwork remains in place: `GET /health`, and `POST /ai/analyze` running the `SEMANTIC_UNDERSTANDING` task through NVIDIA→OpenRouter with schema validation and `AiOutput` persistence. Wave 13 adds the **provenance foundation**: a frozen `ProvenanceRecord` contract, provenance D1 table + repository, C2PA manifest build/verify logic, and worker `/provenance/*` routes that bind real R2 asset bytes to SHA-256 hashes. Real signed embedding + verification runs through the official `c2pa-python==0.37.10` SDK with honest trust reporting (see "Honest C2PA trust model" below). Wave 14 adds the **audience context** subsystem. Wave 10/11 add the **deterministic Repair engine** and **real re-verification** (`/repair`, `/reverify`). Wave 12 adds the **Release Passport**: a frozen snapshot contract and `/passports` API that compiles the latest verification state into versioned `release_status`/`watch_status`/dimension scores, honestly reflecting provenance (no `READY` while provenance is not `VALID`). **Hardening waves W17 (security+reliability), W18 (full automated testing), W19 (deployment readiness) are complete and integrated** (threat model, verification scoping, adversarial benchmark suite at 33/33, deterministic real-signed c2pa path, deploy runbook, CORS layer, CI workflow). The live D1 database and R2 are provisioned and the Worker is **deployed live**; all monorepo typechecks green (11/11).
+Wave 3 implements the **source ingestion pipeline**: upload → R2 → D1 → media validation → `SourceAsset` → workflow ingestion → `READY`, plus a minimal upload UI. Wave 2's infra/AI groundwork remains in place: `GET /health`, and `POST /ai/analyze` running the `SEMANTIC_UNDERSTANDING` task through NVIDIA→OpenRouter with schema validation and `AiOutput` persistence. Wave 4 adds **video understanding** (`/ai/understand`): the worker extracts the MP4 audio track in-process, transcribes it (Mistral Voxtral primary → OpenRouter whisper fallback), and produces semantic sections. Wave 5 adds the **evidence graph** (`/evidence-graph`): claim + evidence extraction from each understanding, grounded in source transcripts and sections. Wave 8 adds **content generation** (`/generate`): evidence-grounded asset generation through the same `@crex/ai` adapter with schema validation and `GeneratedAsset`/`GeneratedComponent` persistence. Wave 9 adds the **verification engine** (`/verify`): rule-based + semantic checks producing persisted `VerificationRun`/`VerificationFinding` results. Wave 13 adds the **provenance foundation**: a frozen `ProvenanceRecord` contract, provenance D1 table + repository, C2PA manifest build/verify logic, and worker `/provenance/*` routes that bind real R2 asset bytes to SHA-256 hashes. Real signed embedding + verification runs through the official `c2pa-python==0.37.10` SDK with honest trust reporting (see "Honest C2PA trust model" below). Wave 14 adds the **audience context** subsystem. Wave 10/11 add the **deterministic Repair engine** and **real re-verification** (`/repair`, `/reverify`). Wave 12 adds the **Release Passport**: a frozen snapshot contract and `/passports` API that compiles the latest verification state into versioned `release_status`/`watch_status`/dimension scores, honestly reflecting provenance (no `READY` while provenance is not `VALID`). **Hardening waves W17 (security+reliability), W18 (full automated testing), W19 (deployment readiness) are complete and integrated** (threat model, verification scoping, adversarial benchmark suite at 33/33, deterministic real-signed c2pa path, deploy runbook, CORS layer, CI workflow). The live D1 database and R2 are provisioned and the Worker is **deployed live**; all monorepo typechecks green (11/11).
 
 ---
 
@@ -54,8 +54,8 @@ PUBLISH
 | AI (Fallback) | OpenRouter (OpenAI-compatible API) |
 | AI (Legacy/provider) | Mistral |
 | Vector Search | Cloudflare Vectorize + LanceDB (local) |
-| Media Processing | FFmpeg (planned); Wave 3: in-process MP4 probe (`@crex/media`) |
-| Speech Fallback | WhisperX / faster-whisper |
+| Media Processing | In-process MP4 probe + audio-track extraction (`@crex/media`); no FFmpeg dependency |
+| Speech-to-Text | Mistral Voxtral (primary) → OpenRouter whisper-large-v3 (fallback) |
 | Provenance | C2PA Python SDK |
 | Schemas | Zod (TS) + Pydantic (deferred) |
 | Testing | Vitest (Wave 1); Playwright + pytest later |
@@ -172,7 +172,7 @@ GET  /passports/:id                fetch a passport by id
 GET  /passports/:assetId/latest    fetch the latest passport for an asset
 ```
 
-- **Tests:** `apps/worker/tests/passport.test.ts` — 17 tests (creation, versioning, READY/BLOCKED/DRAFT selection, provenance downgrades, score penalization, counts, 404/409 routes) — worker suite green **179/179**.
+- **Tests:** `apps/worker/tests/passport.test.ts` — 17 tests (creation, versioning, READY/BLOCKED/DRAFT selection, provenance downgrades, score penalization, counts, 404/409 routes) — worker suite green **202/202** (full suite; see Testing below).
 
 ---
 
@@ -210,10 +210,10 @@ POST /workflows/source-to-release    {projectId, sourceId} → SourceToReleaseWo
 
 ### Live deployment
 
-- **D1:** production database `crex` (`database_id b01526fc-40b4-4024-8616-b2fb6099d94d`) in `apps/worker/wrangler.jsonc`; migrations `0001`–`0011` all applied remotely (`npx wrangler d1 migrations list crex --remote` reports no pending migrations).
+- **D1:** production database `crex` (`database_id b01526fc-40b4-4024-8616-b2fb6099d94d`) in `apps/worker/wrangler.jsonc`; migrations `0001`–`0011` were verified applied remotely on 2026-09-07. Two further additive migrations exist locally — `0012_repair.sql`, `0013_release_passports.sql`; their remote-apply state was not re-checked during the W21 audit (requires `wrangler` auth — see `docs/judge-path/submission-audit.md`).
 - **R2:** bucket `crex-media` created, bound as `MEDIA`.
 - **Worker:** deployed to <code>https://crex-worker.loujanb2008.workers.dev</code> (bindings `DB`, `MEDIA`, `SOURCE_TO_RELEASE`, AI `vars`).
-- **Verified:** a live upload → `POST /sources` 201 → `PUT /sources/:id/blob` 200 `VALID` (real R2 write + D1 insert) → poll `VALID` → `POST /workflows/source-to-release` → source `READY`; the remote `source_assets` row was read back as `READY` (998 B, checksum match) directly from D1. Re-confirmed live this session: `/health` 200 with db/r2/workflow true, active deployment `1afc0f7f` at 100%.
+- **Verified:** a live upload → `POST /sources` 201 → `PUT /sources/:id/blob` 200 `VALID` (real R2 write + D1 insert) → poll `VALID` → `POST /workflows/source-to-release` → source `READY`; the remote `source_assets` row was read back as `READY` (998 B, checksum match) directly from D1. Re-confirmed live on 2026-09-07: `/health` 200 with db/r2/workflow true (active deployment hash `1afc0f7f` at 100%). These are time-boxed verification snapshots — re-verifying live state requires `wrangler` auth.
 - **Runbook:** see `docs/implementation/deploy-runbook.md` for the full deployment/migration/rollback runbook, the SAFE vs DESTRUCTIVE command table, and CORS/Pages guidance.
 
 ## Development Setup
@@ -226,7 +226,7 @@ pnpm install
 
 ### Worker — local run & AI provisioning
 
-AI output is generated via `POST /ai/analyze`. It needs at least one AI provider key. Copy `apps/worker/.dev.vars.example` to `apps/worker/.dev.vars` and fill in `NVIDIA_API_KEY`, `OPENROUTER_API_KEY`, and/or `MISTRAL_API_KEY` (NVIDIA is primary, OpenRouter is the active fallback). Provider defaults (base URL, model, timeout, retries) can be overridden through worker vars — see `apps/worker/wrangler.jsonc`.
+AI output is generated via `POST /ai/analyze`. It needs at least one AI provider key. Copy `apps/worker/.dev.vars.example` to `apps/worker/.dev.vars` and fill in `NVIDIA_API_KEY`, `OPENROUTER_API_KEY`, and/or `MISTRAL_API_KEY` (NVIDIA is primary, OpenRouter is the active fallback). The Wave 4+ paths (`/ai/understand`, `/evidence-graph/build`, `/generate`) gate on the same AI keys; speech-to-text for `/ai/understand` uses Mistral Voxtral (primary) → OpenRouter whisper (fallback) with the same `MISTRAL_API_KEY` / `OPENROUTER_API_KEY`. Provider defaults (base URL, model, timeout, retries) can be overridden through worker vars — see `apps/worker/wrangler.jsonc`.
 
 ```bash
 pnpm --filter @crex/worker dev       # runs `wrangler dev` (or: cd apps/worker && npx wrangler dev)
@@ -251,7 +251,7 @@ npx wrangler deploy        # or: cd apps/worker && npm run deploy
 
 Migrations live in `packages/db/migrations` (`wrangler.jsonc` points `migrations_dir` there). They run **wrangler-side**, not inside the worker (`node:fs` is unavailable in workerd) — see `docs/implementation/decision-workflow-migrations.md`.
 
-Worker `vars` (defaults in `apps/worker/wrangler.jsonc`) cover AI provider config (`NVIDIA_BASE_URL`, `NVIDIA_MODEL`, `MISTRAL_BASE_URL`, `MISTRAL_MODEL`, `OPENROUTER_BASE_URL`, `OPENROUTER_MODEL`, `AI_TIMEOUT_MS`, `AI_MAX_RETRIES`, `AI_RETRY_BASE_DELAY_MS`) and the upload size cap `SOURCE_MAX_SIZE_BYTES` (100 MiB).
+Worker `vars` (defaults in `apps/worker/wrangler.jsonc`) cover AI provider config (`NVIDIA_BASE_URL`, `NVIDIA_MODEL`, `MISTRAL_BASE_URL`, `MISTRAL_MODEL`, `OPENROUTER_BASE_URL`, `OPENROUTER_MODEL`, `AI_TIMEOUT_MS`, `AI_MAX_RETRIES`, `AI_RETRY_BASE_DELAY_MS`) and the upload size cap `SOURCE_MAX_SIZE_BYTES` (100 MiB). Optional speech-to-text overrides (`STT_PRIMARY_PROVIDER`, `STT_MISTRAL_MODEL`, `STT_OPENROUTER_MODEL`) default in code to `mistral` / `voxtral-mini-2505` / `openai/whisper-large-v3`.
 
 ### Worker routes
 
@@ -261,6 +261,28 @@ Worker `vars` (defaults in `apps/worker/wrangler.jsonc`) cover AI provider confi
 | POST | `/workflows/source-to-release` | Create + run a workflow instance (`{projectId, id?, sourceId?}`) |
 | GET | `/workflows/source-to-release/:id` | Instance status/phase |
 | POST | `/ai/analyze` | Generate → validate → persist an `AiOutput` (`SEMANTIC_UNDERSTANDING` only; `503` without API keys) |
+| POST | `/ai/understand` | Video understanding on a `READY` source: MP4 audio-track extraction → STT transcript → semantic sections (`{sourceAssetId}`; `503` without AI keys) |
+| GET | `/ai/understand/:id` | Understanding + transcript + semantic sections |
+| GET | `/ai/understand/source/:id` | Understandings for a source asset |
+| GET | `/ai/understand/:id/sections` | Semantic sections for an understanding |
+| GET | `/ai/transcript/:id` | Fetch a transcript |
+| POST | `/evidence-graph/build` | Extract claims + evidence from an understanding (`{understandingId, projectId}`; `503` without AI keys) |
+| GET | `/evidence-graph?projectId=` | List a project's claims |
+| GET | `/evidence-graph/:claimId` | Claim + its linked evidence |
+| GET | `/evidence-graph/evidence/:claimId` | List evidence for a claim |
+| POST | `/generate` | Evidence-grounded content generation (`{projectId, assetTypes?}`; `503` without AI keys) |
+| GET | `/generate?projectId=` | List a project's generated assets |
+| GET | `/generate/:id` | Generated asset + components |
+| POST | `/verify` | Verify a generated asset (`{projectId, assetId}`) → persisted run + findings |
+| GET | `/verify?projectId=` | List a project's verification runs |
+| GET | `/verify/:id` | Verification run + its findings |
+| GET | `/verify/findings/:runId` | Findings for a run |
+| POST | `/contracts/constraints` | Create a creator-intent constraint for a project |
+| GET | `/contracts/constraints?projectId=` | List constraints |
+| GET | `/contracts/constraints/:id` | Fetch a constraint |
+| POST | `/contracts/sponsor-requirements` | Create a sponsor requirement |
+| GET | `/contracts/sponsor-requirements?projectId=` | List sponsor requirements |
+| GET | `/contracts/sponsor-requirements/:id` | Fetch a sponsor requirement |
 | POST | `/sources` | Create an upload session (201) |
 | PUT | `/sources/:uploadId/blob` | Stream blob to R2 (size-capped, media-validated; 200 `VALID`/`INVALID`) |
 | GET | `/sources/:uploadId` | Poll upload/source status |
@@ -271,6 +293,7 @@ Worker `vars` (defaults in `apps/worker/wrangler.jsonc`) cover AI provider confi
 | GET | `/provenance/verify` | Re-hash R2 asset bytes + C2PA verify → `VALID`/`INVALID`/`UNSIGNED`/`UNTRUSTED`/`MISSING` |
 | POST | `/audience/profiles` | Create a named audience profile |
 | GET | `/audience/profiles?projectId=` | List profiles |
+| GET | `/audience/profiles/:id` | Fetch a profile |
 | POST | `/audience/observations` | Record an observation (idempotent) |
 | GET | `/audience/observations?projectId=` | List observations |
 | POST | `/audience/compute` | Deterministic aggregate → insights → recommendations |
@@ -297,6 +320,8 @@ pnpm -r test        # Vitest across all workspaces (684 tests)
 ```
 
 Coverage by workspace: `@crex/schemas` 154, `@crex/tests` 106, `@crex/db` 67, `@crex/infra` 37, `@crex/ai` 36, `@crex/media` 29, `@crex/c2pa` 21, `@crex/core` 20, `@crex/audience` 12, `apps/worker` 202 (17 files: 176 hardening baseline incl. security/adversarial + CORS, +9 Repair/Re-verify, +17 Release Passport).
+
+The Wave 16 adversarial benchmark suite (`benchmarks/adversarial`, 33 cases) is **not part of the pnpm workspaces**, so `pnpm -r test` does not run it. It passed 33/33 during W18; to reproduce, install and run it from `benchmarks/` directly (see `docs/judge-path/submission-audit.md`).
 
 ---
 
