@@ -13,6 +13,7 @@ import {
   aiConfigured,
   runGenerationTask,
 } from "../workflows/ai-output";
+import { withStageTiming } from "../perf";
 
 export interface EvidenceGraphDeps {
   db: D1Adapter;
@@ -27,6 +28,17 @@ export interface EvidenceGraphResult {
 }
 
 export async function runEvidenceGraph(
+  deps: EvidenceGraphDeps,
+  understandingId: string,
+  projectId: string,
+  options: ProviderOptions,
+): Promise<EvidenceGraphResult> {
+  return withStageTiming("pipeline:evidence-graph", () =>
+    runEvidenceGraphInner(deps, understandingId, projectId, options),
+  );
+}
+
+async function runEvidenceGraphInner(
   deps: EvidenceGraphDeps,
   understandingId: string,
   projectId: string,
@@ -93,7 +105,9 @@ export async function runEvidenceGraph(
     response_format: { type: "json_object" },
   };
 
-  const result = await runGenerationTask(request, options, claimExtractionSchema);
+  const result = await withStageTiming("evidence-graph:ai-claim-extraction", () =>
+    runGenerationTask(request, options, claimExtractionSchema),
+  );
   const raw = claimExtractionSchema.parse(result.normalized);
 
   const claimIds: string[] = [];

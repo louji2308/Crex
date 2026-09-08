@@ -16,6 +16,7 @@ import type {
   SponsorRequirement,
 } from "@crex/schemas";
 import { CrexError } from "@crex/core/src/errors";
+import { withStageTiming } from "../perf";
 
 export interface RepairDeps {
   db: D1Adapter;
@@ -421,6 +422,15 @@ function repairNumericalDrift(sourceText: string, generatedText: string): string
  * not auto-repaired and produce no action.
  */
 export async function runRepair(
+  deps: RepairDeps,
+  options: RepairOptions,
+): Promise<RepairResult> {
+  return withStageTiming("pipeline:repair", () =>
+    runRepairInner(deps, options),
+  );
+}
+
+async function runRepairInner(
   deps: RepairDeps,
   options: RepairOptions,
 ): Promise<RepairResult> {
