@@ -18,6 +18,7 @@ import type {
   SponsorRequirement,
 } from "@crex/schemas";
 import { CrexError } from "@crex/core/src/errors";
+import { withStageTiming } from "../perf";
 
 export interface VerificationDeps {
   db: D1Adapter;
@@ -49,6 +50,15 @@ const PLATFORM_LIMITS: Record<string, { title?: number; description?: number }> 
  * @throws `CrexError` if the asset does not exist or does not belong to the specified project.
  */
 export async function runVerification(
+  deps: VerificationDeps,
+  options: VerificationOptions,
+): Promise<VerificationResult> {
+  return withStageTiming("pipeline:verification", () =>
+    runVerificationInner(deps, options),
+  );
+}
+
+async function runVerificationInner(
   deps: VerificationDeps,
   options: VerificationOptions,
 ): Promise<VerificationResult> {

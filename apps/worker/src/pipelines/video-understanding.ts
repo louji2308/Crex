@@ -10,6 +10,7 @@ import { createProvider, withFallback, createSttProvider, withSttFallback } from
 import type { ProviderOptions, SttProvider, SttTranscriptionResult } from "@crex/ai";
 import { CrexError } from "@crex/core/src/errors";
 import type { SourceAsset, Transcript, Understanding, SemanticSection } from "@crex/schemas";
+import { withStageTiming } from "../perf";
 
 export interface VideoUnderstandingDeps {
   db: D1Adapter;
@@ -26,6 +27,16 @@ export interface VideoUnderstandingResult {
 }
 
 export async function runVideoUnderstanding(
+  deps: VideoUnderstandingDeps,
+  sourceAssetId: string,
+  options: ProviderOptions,
+): Promise<VideoUnderstandingResult> {
+  return withStageTiming("pipeline:video-understanding", () =>
+    runVideoUnderstandingInner(deps, sourceAssetId, options),
+  );
+}
+
+async function runVideoUnderstandingInner(
   deps: VideoUnderstandingDeps,
   sourceAssetId: string,
   options: ProviderOptions,
@@ -81,7 +92,9 @@ export async function runVideoUnderstanding(
     const audioBytes = extractAudioTrack(videoBytes, probe);
     const audioBase64 = uint8ArrayToBase64(audioBytes);
 
-    const sttResult = await transcribeAudio(audioBase64, options);
+    const sttResult = await withStageTiming("video-understanding:stt-transcribe", () =>
+      transcribeAudio(audioBase64, options),
+    );
 
     const updatedTranscript = await transcripts.get(transcriptId);
     if (updatedTranscript !== undefined) {

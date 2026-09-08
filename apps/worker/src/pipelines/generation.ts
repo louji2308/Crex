@@ -10,6 +10,7 @@ import { assetGenerationSchema } from "@crex/schemas/src/ai-tasks";
 import type { GeneratedAsset, GeneratedComponent, IntegrityScore, Claim } from "@crex/schemas";
 import { CrexError } from "@crex/core/src/errors";
 import { runGenerationTask } from "../workflows/ai-output";
+import { withStageTiming } from "../perf";
 
 export interface GenerationDeps {
   db: D1Adapter;
@@ -35,6 +36,17 @@ const VALID_ASSET_TYPES = [
 ] as const;
 
 export async function runGeneration(
+  deps: GenerationDeps,
+  projectId: string,
+  options: ProviderOptions,
+  assetTypes?: string[],
+): Promise<GenerationResult> {
+  return withStageTiming("pipeline:generation", () =>
+    runGenerationInner(deps, projectId, options, assetTypes),
+  );
+}
+
+async function runGenerationInner(
   deps: GenerationDeps,
   projectId: string,
   options: ProviderOptions,
@@ -70,7 +82,9 @@ export async function runGeneration(
     claims,
   );
 
-  const result = await runGenerationTask(request, options, assetGenerationSchema);
+  const result = await withStageTiming("generation:ai-asset-generation", () =>
+    runGenerationTask(request, options, assetGenerationSchema),
+  );
   if (!result.valid || result.normalized === undefined) {
     throw new CrexError("GENERATION_FAILED", `AI generation failed: ${result.validation_errors.join("; ")}`);
   }

@@ -6,6 +6,7 @@ import { RepairActionRepository } from "@crex/db/src/repositories/repair-actions
 import { CrexError } from "@crex/core/src/errors";
 import { runVerification, type VerificationDeps } from "./verification";
 import { applyRepair, resolveRunForAsset } from "./repair";
+import { withStageTiming } from "../perf";
 
 export interface ReverifyOptions {
   projectId: string;
@@ -30,6 +31,15 @@ export interface ReverifyResult {
  * completing. An asset with no proposed repairs is honest state, not an error.
  */
 export async function runReverify(
+  deps: VerificationDeps,
+  options: ReverifyOptions,
+): Promise<ReverifyResult> {
+  return withStageTiming("pipeline:reverification", () =>
+    runReverifyInner(deps, options),
+  );
+}
+
+async function runReverifyInner(
   deps: VerificationDeps,
   options: ReverifyOptions,
 ): Promise<ReverifyResult> {

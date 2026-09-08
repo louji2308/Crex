@@ -9,6 +9,7 @@ import type { ProvenanceRow } from "@crex/db/src/repositories/provenance";
 import { ReleasePassportRepository } from "@crex/db/src/repositories/release-passports";
 import type { GeneratedAsset, ReleasePassport, VerificationFinding, VerificationRun } from "@crex/schemas";
 import { CrexError } from "@crex/core/src/errors";
+import { withStageTiming } from "../perf";
 
 /**
  * Wave 12 — Release Passport pipeline.
@@ -299,6 +300,15 @@ function integrityDimensions(
  *         `INVALID_ASSET_STATE` when the asset does not belong to the project.
  */
 export async function buildReleasePassport(
+  deps: PassportDeps,
+  options: PassportOptions,
+): Promise<ReleasePassport> {
+  return withStageTiming("pipeline:passport", () =>
+    buildReleasePassportInner(deps, options),
+  );
+}
+
+async function buildReleasePassportInner(
   deps: PassportDeps,
   options: PassportOptions,
 ): Promise<ReleasePassport> {
