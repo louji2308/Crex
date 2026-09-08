@@ -32,6 +32,26 @@ describe("workflow state machine", () => {
     expect(done.completed_at).toBeDefined();
   });
 
+  it("rejects a transition out of a terminal phase", () => {
+    const running = transitionPhase(baseState(), "RUNNING");
+    const done = transitionPhase(running, "COMPLETED");
+    expect(() => transitionPhase(done, "RUNNING")).toThrow(CrexError);
+    expect(() => transitionPhase(done, "COMPLETED")).toThrow(CrexError);
+
+    const failed = transitionPhase(running, "FAILED");
+    expect(() => transitionPhase(failed, "RUNNING")).toThrow(CrexError);
+    expect(() => transitionPhase(failed, "COMPLETED")).toThrow(CrexError);
+
+    const cancelled = transitionPhase(running, "CANCELLED");
+    expect(() => transitionPhase(cancelled, "QUEUED")).toThrow(CrexError);
+  });
+
+  it("allows active-to-terminal transitions and rejects unknown phases", () => {
+    const failed = transitionPhase(baseState(), "FAILED");
+    expect(failed.phase).toBe("FAILED");
+    expect(() => transitionPhase(baseState(), "NOT_A_PHASE" as never)).toThrow(CrexError);
+  });
+
   it("advances through forward stages", () => {
     const state = transitionStage(baseState(), "TRANSCRIPTION");
     expect(state.stage).toBe("TRANSCRIPTION");

@@ -12,6 +12,7 @@ export type GenerationStage = (typeof GENERATION_STAGE)[number];
 export type VerificationStatus = (typeof VERIFICATION_STATUS)[number];
 
 const PHASES: ReadonlySet<WorkflowPhase> = new Set(WORKFLOW_PHASE);
+const TERMINAL_PHASES: ReadonlySet<WorkflowPhase> = new Set(["COMPLETED", "FAILED", "CANCELLED"] as const);
 const STAGES: readonly GenerationStage[] = GENERATION_STAGE;
 
 export function createWorkflowState(
@@ -43,6 +44,12 @@ export function transitionPhase(
 ): WorkflowState {
   if (!PHASES.has(next)) {
     throw new CrexError("INVALID_WORKFLOW_PHASE", `unknown phase: ${next}`);
+  }
+  if (TERMINAL_PHASES.has(state.phase)) {
+    throw new CrexError(
+      "INVALID_WORKFLOW_TRANSITION",
+      `cannot transition from terminal phase ${state.phase} to ${next}`,
+    );
   }
   return workflowStateSchema.parse({
     ...state,

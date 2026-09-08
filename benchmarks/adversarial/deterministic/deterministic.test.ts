@@ -87,7 +87,7 @@ export const deterministicCases: BenchmarkCase[] = [
       source_text: "Individual results may vary. The laptop battery lasts approximately 10 hours.",
       evidence_ranges: [{ start: 0, end: 50 }],
     }),
-    expectedSeverity: "REVIEW",
+    expectedSeverity: "BLOCK",
     description: "Omits required disclaimer 'Individual results may vary'",
   },
   {

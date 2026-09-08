@@ -438,6 +438,35 @@ suite("repositories", () => {
     expect(await repository.listByAsset("other-asset")).toEqual([]);
   });
 
+  it("verification_runs: listByProject scopes rows to the project at the SQL level", async () => {
+    const repos = reposOf();
+    const fx = fixturesOf();
+    const { ProjectRepository, GeneratedAssetRepository, VerificationRunRepository } = repos;
+    await new ProjectRepository(db).insert(fx.makeProject());
+    await new ProjectRepository(db).insert(fx.makeProject({ id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb" }));
+    await new GeneratedAssetRepository(db).insert(fx.makeGeneratedAsset());
+    const repository = new VerificationRunRepository(db);
+
+    await repository.insert(fx.makeVerificationRun({ id: fx.RUN_ID, project_id: fx.PROJECT_ID }));
+    await repository.insert(
+      fx.makeVerificationRun({ id: "b0000000-0000-4000-8000-000000000001", project_id: fx.PROJECT_ID }),
+    );
+    await repository.insert(
+      fx.makeVerificationRun({
+        id: "b0000000-0000-4000-8000-000000000002",
+        project_id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      }),
+    );
+
+    const owned = await repository.listByProject(fx.PROJECT_ID);
+    expect(owned).toHaveLength(2);
+    expect(owned.every((r) => r.project_id === fx.PROJECT_ID)).toBe(true);
+
+    const foreign = await repository.listByProject("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb");
+    expect(foreign).toHaveLength(1);
+    expect(foreign[0]?.project_id).toBe("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb");
+  });
+
   it("verification_findings: insert, get, evidence_ranges round-trip, listByRun", async () => {
     const repos = reposOf();
     const fx = fixturesOf();

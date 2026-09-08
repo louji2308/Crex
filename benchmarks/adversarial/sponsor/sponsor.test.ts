@@ -109,7 +109,7 @@ export const sponsorCases: BenchmarkCase[] = [
       source_text: "Sponsored by TechBrand. The laptop battery lasts 10 hours. Mention sponsor within first 30 seconds.",
       evidence_ranges: [{ start: 0, end: 120 }],
     }),
-    expectedSeverity: "REVIEW",
+    expectedSeverity: "BLOCK",
     description: "Missing timing constraint: sponsor mention within first 30 seconds",
   },
   {

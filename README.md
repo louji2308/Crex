@@ -9,7 +9,7 @@
 
 The pnpm monorepo foundation is complete: **18 frozen contract schemas** (`@crex/schemas`), a D1-compatible SQLite data layer (`@crex/db`), core foundation utilities (`@crex/core`), NVIDIA→OpenRouter AI adapter with fallback (`@crex/ai`), D1/R2 infrastructure adapters (`@crex/infra`), a media inspection package (`@crex/media`), a provenance package (`@crex/c2pa`), an audience package (`@crex/audience`), and a real Cloudflare Worker (**`apps/worker`**) with D1/R2/Workflows bindings.
 
-Wave 3 implements the **source ingestion pipeline**: upload → R2 → D1 → media validation → `SourceAsset` → workflow ingestion → `READY`, plus a minimal upload UI. Wave 2's infra/AI groundwork remains in place: `GET /health`, and `POST /ai/analyze` running the `SEMANTIC_UNDERSTANDING` task through NVIDIA→OpenRouter with schema validation and `AiOutput` persistence. Wave 13 adds the **provenance foundation**: a frozen `ProvenanceRecord` contract, provenance D1 table + repository, C2PA manifest build/verify logic, and worker `/provenance/*` routes that bind real R2 asset bytes to SHA-256 hashes (honest `UNSIGNED` state — real C2PA signing requires installing the `c2pa-python` SDK). Wave 14 adds the **audience context** subsystem (deterministic profiles/insights/recommendations). Wave 12 adds the **Release Passport**: a frozen snapshot contract and `/passports` API that compiles the latest verification state into versioned `release_status`/`watch_status`/dimension scores, honestly reflecting provenance (no `READY` while provenance is not `VALID`). The live D1 database and R2 are provisioned and the Worker is **deployed live**; **`apps/worker` 179 tests passing** (162 baseline + 17 Release Passport), all typechecks green (11/11).
+Wave 3 implements the **source ingestion pipeline**: upload → R2 → D1 → media validation → `SourceAsset` → workflow ingestion → `READY`, plus a minimal upload UI. Wave 2's infra/AI groundwork remains in place: `GET /health`, and `POST /ai/analyze` running the `SEMANTIC_UNDERSTANDING` task through NVIDIA→OpenRouter with schema validation and `AiOutput` persistence. Wave 13 adds the **provenance foundation**: a frozen `ProvenanceRecord` contract, provenance D1 table + repository, C2PA manifest build/verify logic, and worker `/provenance/*` routes that bind real R2 asset bytes to SHA-256 hashes. Real signed embedding + verification runs through the official `c2pa-python==0.37.10` SDK with honest trust reporting (see "Honest C2PA trust model" below). Wave 14 adds the **audience context** subsystem. Wave 10/11 add the **deterministic Repair engine** and **real re-verification** (`/repair`, `/reverify`). Wave 12 adds the **Release Passport**: a frozen snapshot contract and `/passports` API that compiles the latest verification state into versioned `release_status`/`watch_status`/dimension scores, honestly reflecting provenance (no `READY` while provenance is not `VALID`). **Hardening waves W17 (security+reliability), W18 (full automated testing), W19 (deployment readiness) are complete and integrated** (threat model, verification scoping, adversarial benchmark suite at 33/33, deterministic real-signed c2pa path, deploy runbook, CORS layer, CI workflow). The live D1 database and R2 are provisioned and the Worker is **deployed live**; all monorepo typechecks green (11/11).
 
 ---
 
@@ -109,11 +109,11 @@ Wave 13 lays the provenance foundation: an internal `ProvenanceRecord` contract 
 
 ### C2PA tooling (`@crex/c2pa`)
 
-TypeScript, fully unit-tested (22 tests):
+TypeScript, fully unit-tested (21 tests):
 
 - `buildManifest` — constructs a C2PA manifest with a `c2pa.crex_provenance` assertion (asset id + sha256 + linked record), plus `c2pa.asset_id`, `dc.title`, `dc.created`; optional ingredients (content → source mapping).
 - `verifyManifest` — deterministic validation of an extracted manifest: `VALID` (hash + record match), `INVALID` (hash mismatch / malformed), `UNSIGNED` (no Crex assertion), `UNTRUSTED` (unknown signer), `MISSING` (no manifest).
-- `invokePythonCli` — gateway to `python/cli.py` (`embed`/`verify`) for real signed embedding.
+- `invokePythonCli` — gateway to `python/cli.py` (`embed`/`verify`) for real signed embedding; `verify` accepts an optional `trustAnchors` path (passed through as `--trust-anchors`).
 
 ### Worker API (`apps/worker`)
 
@@ -125,9 +125,15 @@ GET  /provenance/verify?assetId=[&recordId=]   re-hash R2 bytes → C2PA verify 
 
 The verify path always re-reads and re-hashes the actual R2 object — it never trusts stored hashes. Every response is an `ApiResponse` envelope; hashing failures surface as explicit errors (never fake success).
 
-### Honest C2PA limitation
+### Honest C2PA trust model
 
-Real signed embedding (`c2pa-python`) is **not** available on this build machine: `pip install c2pa` fails because `py3exiv2` requires MSVC 14.0 Build Tools. Until the SDK installs in a given environment, records are created with `signing_status: UNSIGNED` and verification returns `UNSIGNED` — the system never pretends signing succeeded. The TS manifest build/verify logic is fully unit-tested, and the Python CLI + integration tests gate the signed path explicitly (skip + printed reason).
+Real signed embedding (`c2pa-python==0.37.10`) is installed and working on this build machine. Empirically verified with a real EC signing chain (root → intermediate → leaf) generated by `openssl`:
+
+- A signed PNG verifies with state `Valid`, `signature_valid=true`, `signature_trusted=false`, reporting `signingCredential.untrusted` — an unanchored signature is never presented as trusted.
+- Supplying the root CA via `--trust-anchors <root.pem>` makes the same asset verify with state `Trusted`, `signature_valid=true`, `signature_trusted=true`.
+- Embedding without a signer exits non-zero with an explicit error; the CLI never fabricates a manifest, signature, or verification result.
+
+The TS manifest build/verify logic is unit-tested, and the integration suite exercises the real signed path (embed + plain verify + anchored verify) rather than skipping it.
 
 ---
 
@@ -204,10 +210,11 @@ POST /workflows/source-to-release    {projectId, sourceId} → SourceToReleaseWo
 
 ### Live deployment
 
-- **D1:** production database `crex` (`database_id b01526fc-40b4-4024-8616-b2fb6099d94d`) in `apps/worker/wrangler.jsonc`; migrations `0001`–`0006` applied remotely via `npx wrangler d1 migrations apply crex --remote`; 15 app tables + `d1_migrations` verified.
+- **D1:** production database `crex` (`database_id b01526fc-40b4-4024-8616-b2fb6099d94d`) in `apps/worker/wrangler.jsonc`; migrations `0001`–`0011` all applied remotely (`npx wrangler d1 migrations list crex --remote` reports no pending migrations).
 - **R2:** bucket `crex-media` created, bound as `MEDIA`.
 - **Worker:** deployed to <code>https://crex-worker.loujanb2008.workers.dev</code> (bindings `DB`, `MEDIA`, `SOURCE_TO_RELEASE`, AI `vars`).
 - **Verified:** a live upload → `POST /sources` 201 → `PUT /sources/:id/blob` 200 `VALID` (real R2 write + D1 insert) → poll `VALID` → `POST /workflows/source-to-release` → source `READY`; the remote `source_assets` row was read back as `READY` (998 B, checksum match) directly from D1. Re-confirmed live this session: `/health` 200 with db/r2/workflow true, active deployment `1afc0f7f` at 100%.
+- **Runbook:** see `docs/implementation/deploy-runbook.md` for the full deployment/migration/rollback runbook, the SAFE vs DESTRUCTIVE command table, and CORS/Pages guidance.
 
 ## Development Setup
 
@@ -289,7 +296,7 @@ pnpm -r typecheck   # strict TS across all packages (11/11 green)
 pnpm -r test        # Vitest across all workspaces (668 tests)
 ```
 
-Coverage by workspace: `@crex/schemas` 154, `@crex/tests` 106, `@crex/db` 66, `@crex/infra` 37, `@crex/ai` 36, `@crex/media` 29, `@crex/c2pa` 22, `@crex/core` 18, `@crex/audience` 12, `apps/worker` 188 (162 baseline + 9 Repair/Re-verify + 17 Release Passport).
+Coverage by workspace: `@crex/schemas` 154, `@crex/tests` 106, `@crex/db` 67, `@crex/infra` 37, `@crex/ai` 36, `@crex/media` 29, `@crex/c2pa` 21, `@crex/core` 20, `@crex/audience` 12, `apps/worker` 188 (162 baseline + 9 Repair/Re-verify + 17 Release Passport + 7 CORS + 5 security/adversarial).
 
 ---
 

@@ -30,6 +30,7 @@ import { createGenerationApi } from "./generation-routes";
 import { createRepairApi } from "./repair-routes";
 import { createPassportApi } from "./passport-routes";
 import { errorResponse, errorResponseForCode } from "./http";
+import { corsPreflight, withCors } from "./cors";
 import { IncrementalSha256 } from "@crex/media";
 
 const WORKFLOW_NAME = "crex-source-to-release";
@@ -278,10 +279,13 @@ async function recordWorkflowFailure(
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
+    if (request.method === "OPTIONS") {
+      return corsPreflight(request);
+    }
     try {
-      return await handleRequest(request, env);
+      return withCors(request, await handleRequest(request, env));
     } catch (error) {
-      return errorResponse(error);
+      return withCors(request, errorResponse(error));
     }
   },
 };
@@ -345,8 +349,8 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
 
   if (request.method === "GET" && path.startsWith("/workflows/source-to-release/")) {
     const id = decodeURIComponent(path.slice("/workflows/source-to-release/".length));
-    if (id.length === 0) {
-      return errorResponseForCode("INVALID_WORKFLOW_ID", "workflow id is required");
+    if (id.length === 0 || !isUuid(id)) {
+      return errorResponseForCode("INVALID_WORKFLOW_ID", "workflow id must be a canonical UUID");
     }
     const instance = await env.SOURCE_TO_RELEASE.get(id).catch(() => undefined);
     if (instance === undefined) {

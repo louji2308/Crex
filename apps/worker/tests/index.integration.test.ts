@@ -26,6 +26,7 @@ const WORKFLOW_UUID = "22222222-2222-4222-8222-222222222222";
 const WORKFLOW2_UUID = "55555555-5555-4555-8555-555555555555";
 const STATE_UUID = "33333333-3333-4333-8333-333333333333";
 const STATE2_UUID = "44444444-4444-4444-8444-444444444444";
+const WORKFLOW3_UUID = "77777777-7777-4777-8777-777777777777";
 const AI_UUID = "66666666-6666-4666-8666-666666666666";
 const NOW = "2026-01-02T03:04:05.000Z";
 
@@ -155,10 +156,10 @@ describe("crex-worker HTTP API", () => {
 
     const res = await exports.default.fetch("https://example.com/workflows/source-to-release", {
       method: "POST",
-      body: JSON.stringify({ projectId: PROJECT_UUID, id: WORKFLOW2_UUID, sourceId: createdBody.uploadId }),
+      body: JSON.stringify({ projectId: PROJECT_UUID, id: WORKFLOW3_UUID, sourceId: createdBody.uploadId }),
     });
     expect(res.status).toBe(200);
-    const introspector = await introspectWorkflowInstance(env.SOURCE_TO_RELEASE, WORKFLOW2_UUID);
+    const introspector = await introspectWorkflowInstance(env.SOURCE_TO_RELEASE, WORKFLOW3_UUID);
     try {
       await introspector.waitForStatus("complete");
     } finally {
@@ -169,7 +170,7 @@ describe("crex-worker HTTP API", () => {
     expect(source?.checksum).toMatch(/^sha256:[0-9a-f]{64}$/);
     const row = await new D1Adapter(env.DB)
       .prepare("SELECT phase, stage FROM workflow_state WHERE id = ?")
-      .get(WORKFLOW2_UUID);
+      .get(WORKFLOW3_UUID);
     expect(row?.["phase"]).toBe("COMPLETED");
   });
 
