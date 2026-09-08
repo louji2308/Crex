@@ -2,8 +2,8 @@
 
 ## Current Status
 
-**Phase:** Wave 3 - Source Ingestion Pipeline (COMPLETE + VERIFIED LIVE) / **Wave 12 - Release Passport (IMPLEMENTED + TESTED)** / **Wave 13 - Provenance Foundation (COMPLETE + TESTED)** / **Wave 14 - Audience Context + Learning (IMPLEMENTED + TESTED)** / **W17 Security + Reliability COMPLETE + INTEGRATED** / **W18 Automated Testing COMPLETE + INTEGRATED** / **W19 Deployment COMPLETE + INTEGRATED** / **Live D1 provisioning COMPLETE**
-**Date:** September 7, 2026
+**Phase:** **W20 Judge-Path Hardening COMPLETE + INTEGRATED** / **W21 Final Scope Freeze COMPLETE** / **FINAL RELEASE GATE PASSED (GO)** / W3 Source Ingestion (COMPLETE + VERIFIED LIVE) / W12 Release Passport (IMPLEMENTED + TESTED) / W13 Provenance Foundation (COMPLETE + TESTED) / W14 Audience Context (IMPLEMENTED + TESTED) / W17 Security COMPLETE / W18 Testing COMPLETE / W19 Deployment COMPLETE / Live D1 provisioning COMPLETE
+**Date:** September 8, 2026
 **Hackathon Deadline:** September 8, 2026 - 8:00 AM ET
 
 **Converged `main` (via `w17-19/hardening` + W10-12):** W17 (`agent/w17/security`), W18 (`agent/w18/testing`), and W19 (`agent/w19/deploy`) merged with the W10 repair/W11 re-verification/W12 release-passport stream. Full monorepo validated on the merged tree: `pnpm -r typecheck` 11/11, `pnpm -r test` 684 green across 11 workspaces (incl. previously-gated `@crex/c2pa` 21/21), adversarial benchmarks 33/33, `wrangler deploy --dry-run` OK (~363 KiB).
@@ -48,6 +48,20 @@
 
 - Threat model documented at `docs/security/threat-model.md` (assets, trust boundaries, risk register, controls, residual risks).
 - Because Workflows re-runs the body when an already-completed instance id is re-created in the test harness, `index.integration.test.ts` was updated to use a fresh instance id (`WORKFLOW3_UUID`) for the distinct second run — matching the prod contract that a finished instance is never re-run.
+
+**W20 Judge-Path Hardening (COMPLETE + INTEGRATED, `w20/final`):**
+- Subagent A — Real judge-path E2E: `apps/worker/tests/judge-path.test.ts` drives VERIFY → REPAIR → RE-VERIFY → PASSPORT through real HTTP + real D1 with deterministic fixtures. 10/10: QUALIFIER_LOSS→`CONTEXT_REMOVAL` REVIEW, repair restores qualifier, re-verify PASS, passport READY; BLOCK on invalid claim ref; honest zero-action repair for unfixable SCOPE_DRIFT (never fake success); passport DRAFT/BLOCKED before verification passes; cross-project repair 409, no-prior-run re-verify 404, bad asset 404. Report: `docs/judge-path/judge-path-test-report.md`.
+- Subagent B — Benchmark/perf/failure-resilience:
+  - `benchmarks/REPORT.md`: adversarial suite recorded 33/33 (note: it validates fixture self-consistency — real engine detection coverage lives in the judge-path + failure-resilience + verification worker suites).
+  - Opt-in stage timing (`apps/worker/src/perf.ts`, `CREX_PERF=1`): wraps all 7 pipelines, inert by default, covered by `perf.test.ts`. Report: `docs/judge-path/performance-report.md`.
+  - `apps/worker/tests/failure-resilience.test.ts` (9 tests): SCOPE_DRIFT never silently repaired, provenance failure never READY, terminal workflow never restarted, qualifier-loss detection, AI-unconfigured → 503 without persisting claims. Report: `docs/judge-path/failure-resilience-report.md`.
+  - Demo data: `docs/judge-path/demo-data-recommendation.md` (recommends `laptop-review.json`; repair→reverify→READY run script).
+- Final integration (`w20/final`): all three branches merged; `pnpm -r typecheck` 0 errors across 12 workspaces; `pnpm -r test` green — **742 tests across 11 workspaces** (incl. benchmarks 33/33 as a workspace member).
+
+**W21 Final Scope Freeze (COMPLETE + INTEGRATED, `w20/final`):**
+- Subagent C — Final release audit: secrets scan clean, no tracked binaries, `.gitignore` verified, 13 migrations consistent, env templates reconciled, README/deploy-runbook/baseline wave-status corrected (STT reality: OpenRouter whisper, not WhisperX/faster-whisper; 21 routes documented; stale test-count claims removed). Checklist: `docs/judge-path/submission-audit.md`.
+- Orchestrator fix: `benchmarks/` was NOT a `pnpm-workspace.yaml` member (so `pnpm -r test`/CI never installed or ran it). Added to workspace, aligned tsconfig with repo convention (`vitest/globals` types, type-only `BenchmarkCase` import, `vitest/import-meta` reference), lockfile updated. Verified: benchmarks typecheck clean + 33/33 under vitest 4.1.11.
+- Final release gate PASSED (GO): integrated path works, security tests pass, full suite passes (742), benchmark results reviewed, demo path succeeds via deterministic fixtures, documentation reconciled, final branch clean, final commit pushed.
 
 ---
 
@@ -387,7 +401,7 @@ Then Wave 4: video understanding (planning).
 
 ## Test Status
 
-**Monorepo tests all pass (684 total)** across 11 test-running workspaces:
+**Monorepo tests all pass (742 total)** across 11 test-running workspaces (final `w20/final` tree):
 - `@crex/schemas` - 154 (schema strictness, in/out conventions, JSON round-trip, api/domain, ai-tasks, audience contracts)
 - `@crex/tests` — 106 (contract conformance incl. `ProvenanceRecord`, cross-package db integration)
 - `@crex/audience` - 12 (deterministic aggregation, insights, recommendations)
@@ -395,14 +409,15 @@ Then Wave 4: video understanding (planning).
 - `@crex/infra` — 37 (D1/R2 adapters on miniflare/workerd emulation; table list covers all 24 tables incl. repair_actions + release_passports)
 - `@crex/ai` — 36 (NVIDIA/Mistral/OpenRouter clients, fallback, validation)
 - `@crex/core` — 20 (config, API envelopes, workflow transitions/terminal-phase immutability, errors)
-- `apps/worker` - 202 (17 files: HTTP routes, error model, ai-output module, sources routes + UI, source-ingestion, `/ai/analyze` via stubbed fetch, wired-task gating, NVIDIA->OpenRouter fallback, audience API routes, provenance routes, video-understanding routes, repair + re-verification 9, release passport 17, W17 security/adversarial, CORS 7; hardening baseline 176 + 9 + 17)
+- `apps/worker` - 227 (20 files: 202 hardening baseline + judge-path E2E 10 + failure-resilience 9 + perf 6; real HTTP verify→repair→reverify→passport path, error model, sources, provenance, video-understanding, repair/re-verification, release passport, W17 security/adversarial, CORS 7)
 - `@crex/media` - 29 (incremental SHA-256, MP4 probe, validation, fixtures)
 - `@crex/c2pa` - 21 (manifest build, 5-state verify, python CLI invoke, real signed embed+verify integration with openssl-generated chain)
+- `@crex/benchmarks` - 33 (adversarial fixture suite, now a `pnpm-workspace.yaml` member run by `pnpm -r test`/CI)
 - `apps/web` - 0 (no tests written yet; `vitest run` exits 0 via `passWithNoTests`)
 
-**Adversarial benchmarks (run from `benchmarks/`):** 33/33 passing — all cover per verified engine behavior (`apps/worker/src/pipelines/verification.ts` emits BLOCK for missing required sponsor phrases/disclosures/URLs/timing constraints).
+**Adversarial benchmarks (`@crex/benchmarks`):** 33/33 passing — fixture self-consistency coverage (severity expectations aligned to verified engine behavior in W18). REAL engine adversarial detection is exercised by the worker suites: `judge-path.test.ts`, `failure-resilience.test.ts`, `verification.test.ts`, `verification-edge-cases.test.ts` (drive `/verify` through real HTTP + real D1).
 
-Run: `pnpm -r typecheck` (11/11 green) / `pnpm -r test` (684 green, exit 0).
+Run: `pnpm -r typecheck` (12/12 green, 0 errors) / `pnpm -r test` (742 green, exit 0).
 
 ---
 
@@ -490,5 +505,5 @@ Wave 14 audience contracts (defined in `packages/schemas/src/audience.ts`, deep-
 | W17 | Security + Reliability | **COMPLETE + INTEGRATED** (`agent/w17/security` → `w17-19/hardening`) — audit, fixes (terminal-phase guard, error redaction, content-length 413 both directions, workflow GET UUID validation, SQL-scoped verification listing), regression tests, `docs/security/threat-model.md` |
 | W18 | Full Automated Testing | **COMPLETE + INTEGRATED** (`agent/w18/testing` → `w17-19/hardening`) - benchmark fixture alignment (33/33), real signed c2pa deterministic path resolving the test gate (21/21), `pnpm -r test` fully green on the converged tree (684 tests) |
 | W19 | Deployment | **COMPLETE + INTEGRATED** (`agent/w19/deploy` → `w17-19/hardening`) — runbook, CORS layer, root deploy/migrate scripts, env docs, CI workflow; `wrangler deploy --dry-run` verified |
-| W20 | Judge-Path Hardening | NOT STARTED |
-| W21 | Final Scope Freeze | NOT STARTED |
+| W20 | Judge-Path Hardening | **COMPLETE + INTEGRATED** (`w20/final`) — real judge-path E2E (verify→repair→reverify→passport, 10/10 via real HTTP + real D1), opt-in stage timing (`CREX_PERF=1`), failure-resilience matrix (9 tests), benchmark report, performance report, demo-data strategy; final branch `w20/final`, final commit `7fc868b` |
+| W21 | Final Scope Freeze | **COMPLETE + INTEGRATED** (`w20/final`) — submission-audit checklist, doc reconciliation (README/routes/STT/env/migrations), secrets scan clean, dead-code review, `.gitignore` verified, benchmark suite made a workspace member + typecheck-clean, release gate PASSED (GO) |

@@ -2,9 +2,11 @@
 
 **Task:** W20 Judge-Path Hardening — verify the complete real judge path end-to-end.
 **Date:** September 8, 2026
-**Agent:** Subagent A (integration test engineer)
+**Agent:** Subagent A (integration test engineer), integrated by orchestrator onto `w20/final`
 **Worktree:** `C:\Users\LOUJAN B\AppData\Local\Temp\opencode\crex-w20-a`
-**Branch:** `agent/w20/judge-path`
+**Branch:** `agent/w20/judge-path` (integrated → `w20/final`)
+
+> **Final integrated state (orchestrator-verified):** after merging the three W20 branches, `pnpm -r typecheck` is green across 12 workspaces and `pnpm -r test` is green across 11 workspaces — **742 tests total** (this report's 684 was the pre-integration baseline at base `516bf8c`; the +58 come from judge-path 10, failure-resilience 9, perf 6, and benchmarks 33 as a newly workspace-membered package).
 
 ---
 
@@ -14,8 +16,8 @@ The merged tree (base `516bf8c`) is **GREEN** — no genuine bugs found in basel
 
 | Check | Result |
 |-------|--------|
-| `pnpm -r typecheck` | **PASS** — 11/11 workspaces green |
-| `pnpm -r test` | **PASS** — 684/684 tests green (11 test-running workspaces) |
+| `pnpm -r typecheck` | **PASS** — 11/11 workspaces green (12/12 after W21 benchmark workspace fix) |
+| `pnpm -r test` | **PASS** — 684/684 tests green (11 test-running workspaces; 742/742 after W21 integration) |
 
 Per-workspace counts:
 - `@crex/media` — 29

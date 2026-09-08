@@ -345,8 +345,8 @@ persisted to `workflow_state.phase = FAILED` with an error JSON — check via
 
 `.github/workflows/ci.yml` runs `pnpm install --frozen-lockfile` +
 `pnpm -r typecheck` + `pnpm -r test` on push to `main` and on PRs. It **does not
-deploy and contains no secrets**. Caveat: the adversarial benchmark suite
-(`benchmarks/`, 33 cases) is not part of the pnpm workspaces, so CI does not cover
-it — it is run manually (33/33 in W18). A future deploy job should require CI green
+deploy and contains no secrets**. The adversarial benchmark suite
+(`@crex/benchmarks`, 33 cases) is a pnpm workspace member, so CI covers it via
+`pnpm -r test`. A future deploy job should require CI green
 and then run `wrangler deploy` (equivalent of `pnpm deploy:worker`) as a tagged
 action — do not store credentials in the repo.

@@ -4,7 +4,7 @@
 
 ## Current Status
 
-**Phase:** Wave 4 — Video Understanding (IMPLEMENTED + TESTED) + **Wave 5 Evidence Graph (IMPLEMENTED + TESTED)** + **Wave 8 Content Generation (IMPLEMENTED + TESTED)** + **Wave 9 Verification (IMPLEMENTED + TESTED)** — alongside Wave 3 Source Ingestion (COMPLETE + VERIFIED LIVE), Wave 6/7 Creator-Intent/Sponsor contracts, Wave 10/11 Repair + Re-verification, **Wave 12 Release Passport (IMPLEMENTED + TESTED)**, **Wave 13 Provenance Foundation (COMPLETE + TESTED)**, **Wave 14 Audience Context (IMPLEMENTED + TESTED)** + Live D1 provisioning COMPLETE
+**Phase:** Wave 4 — Video Understanding (IMPLEMENTED + TESTED) + **Wave 5 Evidence Graph (IMPLEMENTED + TESTED)** + **Wave 8 Content Generation (IMPLEMENTED + TESTED)** + **Wave 9 Verification (IMPLEMENTED + TESTED)** — alongside Wave 3 Source Ingestion (COMPLETE + VERIFIED LIVE), Wave 6/7 Creator-Intent/Sponsor contracts, Wave 10/11 Repair + Re-verification, **Wave 12 Release Passport (IMPLEMENTED + TESTED)**, **Wave 13 Provenance Foundation (COMPLETE + TESTED)**, **Wave 14 Audience Context (IMPLEMENTED + TESTED)** + Live D1 provisioning COMPLETE + **W20 Judge-Path Hardening COMPLETE + INTEGRATED** + **W21 Final Scope Freeze COMPLETE (release gate: GO)**
 **Date:** September 8, 2026
 
 The pnpm monorepo foundation is complete: **18 frozen contract schemas** (`@crex/schemas`), a D1-compatible SQLite data layer (`@crex/db`), core foundation utilities (`@crex/core`), NVIDIA→OpenRouter AI adapter with fallback (`@crex/ai`), D1/R2 infrastructure adapters (`@crex/infra`), a media inspection package (`@crex/media`), a provenance package (`@crex/c2pa`), an audience package (`@crex/audience`), and a real Cloudflare Worker (**`apps/worker`**) with D1/R2/Workflows bindings.
@@ -315,13 +315,13 @@ Without an AI key, `/ai/analyze` returns `503 AI_NOT_CONFIGURED` (honest gating)
 ## Testing
 
 ```bash
-pnpm -r typecheck   # strict TS across all packages (11/11 green)
-pnpm -r test        # Vitest across all workspaces (684 tests)
+pnpm -r typecheck   # strict TS across all packages (12/12 green)
+pnpm -r test        # Vitest across all workspaces (742 tests)
 ```
 
-Coverage by workspace: `@crex/schemas` 154, `@crex/tests` 106, `@crex/db` 67, `@crex/infra` 37, `@crex/ai` 36, `@crex/media` 29, `@crex/c2pa` 21, `@crex/core` 20, `@crex/audience` 12, `apps/worker` 202 (17 files: 176 hardening baseline incl. security/adversarial + CORS, +9 Repair/Re-verify, +17 Release Passport).
+Coverage by workspace: `@crex/schemas` 154, `@crex/tests` 106, `@crex/db` 67, `@crex/infra` 37, `@crex/ai` 36, `@crex/media` 29, `@crex/c2pa` 21, `@crex/core` 20, `@crex/audience` 12, `@crex/benchmarks` 33, `apps/worker` 227 (20 files: 202 hardening baseline incl. security/adversarial + CORS + Repair/Re-verify + Release Passport, +10 judge-path E2E, +9 failure-resilience, +6 perf timing).
 
-The Wave 16 adversarial benchmark suite (`benchmarks/adversarial`, 33 cases) is **not part of the pnpm workspaces**, so `pnpm -r test` does not run it. It passed 33/33 during W18; to reproduce, install and run it from `benchmarks/` directly (see `docs/judge-path/submission-audit.md`).
+The Wave 16 adversarial benchmark suite (`@crex/benchmarks`, 33 cases) is a workspace member and runs via `pnpm -r test` / CI. It validates fixture self-consistency (severity expectations aligned to the verification engine in W18); real engine adversarial detection is exercised by the worker suites (`judge-path.test.ts`, `failure-resilience.test.ts`, `verification.test.ts`), which drive `/verify` through real HTTP + real D1.
 
 ---
 

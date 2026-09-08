@@ -113,8 +113,8 @@ Deployment: NONE
 | W17 | Security + Reliability | **COMPLETE + INTEGRATED** — terminal-phase guard, error redaction, 413 both directions, workflow-GET UUID validation, SQL-scoped verification listing, regression tests, `docs/security/threat-model.md` |
 | W18 | Full Automated Testing | **COMPLETE + INTEGRATED** — benchmark fixtures aligned to engine BLOCK behavior (33/33), real signed c2pa deterministic path (21/21), `pnpm -r test` fully green (684) |
 | W19 | Deployment | **COMPLETE + INTEGRATED** — runbook, CORS layer, root deploy/migrate scripts, env docs, CI workflow; dry-run verified |
-| W20 | Judge-Path Hardening | NOT STARTED |
-| W21 | Final Scope Freeze | NOT STARTED |
+| W20 | Judge-Path Hardening | **COMPLETE + INTEGRATED** — real judge-path E2E (verify→repair→reverify→passport), opt-in `CREX_PERF=1` stage timing, failure-resilience matrix, benchmark/perf/demo-data reports |
+| W21 | Final Scope Freeze | **COMPLETE + INTEGRATED** — submission-audit checklist, doc reconciliation, secrets scan clean, benchmark suite made a workspace member + typecheck-clean; release gate PASSED (GO) |
 
 ---
 
