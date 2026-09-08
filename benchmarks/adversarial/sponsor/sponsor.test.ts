@@ -1,12 +1,13 @@
+/// <reference types="vitest/import-meta" />
 import {
   baseClaim,
   baseEvidence,
   baseComponent,
   makeFinding,
-  BenchmarkCase,
   runBenchmark,
   printResults,
 } from "../common";
+import type { BenchmarkCase } from "../common";
 
 const claim = baseClaim({
   content: "Sponsored by TechBrand. The laptop battery lasts 10 hours. Use code TECH20 for 20% off. Visit techbrand.example/laptop for details.",

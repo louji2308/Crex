@@ -1,12 +1,13 @@
+/// <reference types="vitest/import-meta" />
 import {
   baseClaim,
   baseEvidence,
   baseComponent,
   makeFinding,
-  BenchmarkCase,
   runBenchmark,
   printResults,
 } from "../common";
+import type { BenchmarkCase } from "../common";
 
 const claim = baseClaim();
 const evidence = baseEvidence({ claim_id: claim.id });

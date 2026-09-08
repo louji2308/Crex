@@ -2,6 +2,7 @@ packages:
   - "packages/*"
   - "apps/*"
   - "tests"
+  - "benchmarks"
 
 allowBuilds:
   esbuild: true

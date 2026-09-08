@@ -2,7 +2,8 @@
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
     "rootDir": ".",
-    "outDir": "../../node_modules/.cache/tsc/benchmarks"
+    "outDir": "../../node_modules/.cache/tsc/benchmarks",
+    "types": ["node", "vitest/globals"]
   },
   "include": ["**/*.ts"],
   "exclude": ["node_modules"]
