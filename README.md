@@ -1,50 +1,164 @@
-# Crex — The Content Integrity Compiler
+<div align="center">
 
-> Generate creator content. Trace it to evidence. Detect meaning drift. Repair violations. Publish with confidence.
+# 🛡️ Crex
+### The Content Integrity Compiler
 
-## Current Status
+**Generate creator content. Trace it to evidence. Detect meaning drift. Repair violations. Publish with confidence.**
 
-**Phase:** Wave 3 — Source Ingestion Pipeline (COMPLETE + VERIFIED LIVE) + **Wave 13 Provenance Foundation (COMPLETE + TESTED)** + **Wave 14 Audience Context (IMPLEMENTED + TESTED)** + Live D1 provisioning COMPLETE
-**Date:** September 7, 2026
+[![Status](https://img.shields.io/badge/status-Wave%2014-blue)]()
+[![Tests](https://img.shields.io/badge/tests-717%20passing-brightgreen)]()
+[![Typecheck](https://img.shields.io/badge/typecheck-11%2F11%20green-brightgreen)]()
+[![Worker](https://img.shields.io/badge/worker-deployed%20live-success)](https://crex-worker.loujanb2008.workers.dev)
+[![License](https://img.shields.io/badge/license-TBD-lightgrey)]()
 
-The pnpm monorepo foundation is complete: **18 frozen contract schemas** (`@crex/schemas`), a D1-compatible SQLite data layer (`@crex/db`), core foundation utilities (`@crex/core`), NVIDIA→OpenRouter AI adapter with fallback (`@crex/ai`), D1/R2 infrastructure adapters (`@crex/infra`), a media inspection package (`@crex/media`), a provenance package (`@crex/c2pa`), an audience package (`@crex/audience`), and a real Cloudflare Worker (**`apps/worker`**) with D1/R2/Workflows bindings.
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)
+![Cloudflare Workers](https://img.shields.io/badge/Cloudflare_Workers-F38020?style=flat&logo=cloudflare&logoColor=white)
+![Next.js](https://img.shields.io/badge/Next.js-000000?style=flat&logo=nextdotjs&logoColor=white)
+![D1](https://img.shields.io/badge/Cloudflare_D1-F38020?style=flat&logo=cloudflare&logoColor=white)
+![Zod](https://img.shields.io/badge/Zod-3E67B1?style=flat&logo=zod&logoColor=white)
+![Vitest](https://img.shields.io/badge/Vitest-6E9F18?style=flat&logo=vitest&logoColor=white)
 
-Wave 3 implements the **source ingestion pipeline**: upload → R2 → D1 → media validation → `SourceAsset` → workflow ingestion → `READY`, plus a minimal upload UI. Wave 2's infra/AI groundwork remains in place: `GET /health`, and `POST /ai/analyze` running the `SEMANTIC_UNDERSTANDING` task through NVIDIA→OpenRouter with schema validation and `AiOutput` persistence. Wave 13 adds the **provenance foundation**: a frozen `ProvenanceRecord` contract, provenance D1 table + repository, C2PA manifest build/verify logic, and worker `/provenance/*` routes that bind real R2 asset bytes to SHA-256 hashes. Real signed embedding + verification runs through the official `c2pa-python==0.37.10` SDK with honest trust reporting (see "Honest C2PA trust model" below). **Hardening waves W17 (security+reliability), W18 (full automated testing), W19 (deployment readiness) are complete and integrated** (threat model, verification scoping, adversarial benchmark suite at 33/33, deterministic real-signed c2pa path, deploy runbook, CORS layer, CI workflow). The live D1 database and R2 are provisioned and the Worker is **deployed live**; **658 tests passing** across 11 workspaces (plus the 33 adversarial benchmarks), all typechecks green.
+[Live Worker](https://crex-worker.loujanb2008.workers.dev) · [Report a Bug](https://github.com/louji2308/Crex/issues) · [Documentation](#-documentation)
+
+</div>
+
+<br/>
+
+<!--
+  ADD A HERO SCREENSHOT OR GIF HERE.
+  Recommended: 1200×675px (16:9), PNG/WebP or a short screen recording as GIF.
+  Save it to docs/images/hero-banner.png in your repo and this will render automatically.
+-->
+<div align="center">
+<img src="docs/images/hero-banner.png" alt="Crex — product preview banner" width="90%"/>
+<br/>
+<sub><i>👆 Replace with a screenshot / GIF of Crex in action (e.g. the upload UI or a passport result)</i></sub>
+</div>
+
+<br/>
 
 ---
 
-## What Is Crex?
+## 📋 Table of Contents
 
-Crex is an AI content-production system that converts a creator's source video into publishable content assets while preserving the original meaning, linking every important generated claim to source evidence, enforcing creator and sponsor constraints, and blocking or repairing outputs that drift from the source before publication.
+- [🎯 What is Crex?](#-what-is-crex)
+- [🔄 How It Works](#-how-it-works)
+- [🏗️ Architecture](#️-architecture)
+- [📸 Screenshots](#-screenshots)
+- [🧩 Feature Modules](#-feature-modules)
+- [📁 Repository Structure](#-repository-structure)
+- [🔒 Frozen Contracts](#-frozen-contracts)
+- [🌐 API Reference](#-api-reference)
+- [🚀 Getting Started](#-getting-started)
+- [🧪 Testing](#-testing)
+- [🌍 Live Deployment](#-live-deployment)
+- [⚠️ Current Limitations](#️-current-limitations)
+- [📚 Documentation](#-documentation)
+- [📄 License](#-license)
 
-### Core Workflow
+---
 
-```text
-SOURCE
-  ↓
-UNDERSTAND
-  ↓
-EVIDENCE GRAPH
-  ↓
-GENERATE
-  ↓
-VERIFY
-  ↓
-REPAIR (if needed)
-  ↓
-RE-VERIFY
-  ↓
-RELEASE PASSPORT
-  ↓
-PUBLISH
+## 🎯 What is Crex?
+
+Crex is an AI content-production system that turns a creator's raw source video into publishable content — social posts, captions, summaries — **without letting the AI drift from what was actually said.**
+
+> **In plain English:** you upload a video. Crex's AI reads it, extracts what was actually claimed, and drafts content based on those claims. Before anything gets published, Crex automatically checks every generated sentence against the original source. If a fact got twisted or a number changed, it repairs the content and checks again. Only content that passes every check gets a **Release Passport** — a signed verdict saying "this is safe to publish."
+
+Three promises drive the design:
+
+| Promise | What It Means |
+|---|---|
+| 🔗 **Traceable** | Every important claim in the generated output links back to a specific timestamp in the source video. |
+| ✅ **Verified** | Nothing publishes without a deterministic verification pass checking for meaning drift, numerical errors, and constraint violations. |
+| 🔍 **Honest** | Status is never faked. If provenance is unsigned, the system says `UNSIGNED` — not `VALID`. If AI isn't configured, it returns `503`, not a silent fallback. |
+
+---
+
+## 🔄 How It Works
+
+```mermaid
+flowchart LR
+    A(["📹 SOURCE"]) --> B["🧠 UNDERSTAND"]
+    B --> C["🔗 EVIDENCE GRAPH"]
+    C --> D["✍️ GENERATE"]
+    D --> E{"✅ VERIFY"}
+    E -- "drift found" --> F["🔧 REPAIR"]
+    F --> G["🔁 RE-VERIFY"]
+    E -- "clean" --> H["🛂 RELEASE PASSPORT"]
+    G --> H
+    H --> I(["🚀 PUBLISH"])
 ```
 
+| Stage | What Happens |
+|---|---|
+| 📹 **SOURCE** | Creator uploads a raw video. Crex streams it to R2, computes a SHA-256 hash in-flight, and validates the container/codec before accepting it. |
+| 🧠 **UNDERSTAND** | AI (NVIDIA primary → OpenRouter fallback) analyzes the source to extract what was actually said. |
+| 🔗 **EVIDENCE GRAPH** | Every extracted claim is linked to the exact source segment/timestamp that supports it — the "receipts" behind each fact. |
+| ✍️ **GENERATE** | AI drafts publishable content grounded in the evidence graph, respecting creator and sponsor constraints. |
+| ✅ **VERIFY** | A verification run checks each generated claim against its evidence and flags meaning drift, numerical errors, or constraint violations. |
+| 🔧 **REPAIR** | If VERIFY finds problems, a **deterministic** repair engine (no AI guesswork) proposes concrete fixes. |
+| 🔁 **RE-VERIFY** | Repaired content is re-checked against the same evidence to confirm the fix actually worked. |
+| 🛂 **RELEASE PASSPORT** | A versioned, frozen-format snapshot compiles the latest verification + provenance state into a `READY` / `DRAFT` / `BLOCKED` verdict with dimension scores. |
+| 🚀 **PUBLISH** | Only assets holding a `READY` passport are cleared to go out. |
+
+See [🧩 Feature Modules](#-feature-modules) below for exactly which stages are implemented today and their test status.
+
 ---
 
-## Architecture
+## 🏗️ Architecture
+
+```mermaid
+graph TB
+    subgraph Client["Client"]
+        UI["Next.js Frontend<br/>TypeScript + Tailwind CSS"]
+    end
+
+    subgraph Edge["Cloudflare Worker — apps/worker"]
+        API["HTTP API<br/>sources · provenance · audience<br/>repair · reverify · passports"]
+        WF["Cloudflare Workflows<br/>SourceToReleaseWorkflow"]
+    end
+
+    subgraph AI["AI Layer — @crex/ai"]
+        NV["NVIDIA API<br/>(primary)"]
+        OR["OpenRouter<br/>(fallback)"]
+        MI["Mistral<br/>(legacy)"]
+    end
+
+    subgraph Storage["Storage"]
+        D1[("Cloudflare D1<br/>SQLite")]
+        R2[("Cloudflare R2<br/>Media Objects")]
+    end
+
+    subgraph Provenance["Provenance — @crex/c2pa"]
+        C2["C2PA Python SDK<br/>sign · embed · verify"]
+    end
+
+    subgraph Core["Core Packages"]
+        SCH["@crex/schemas<br/>18 frozen contracts"]
+        MED["@crex/media<br/>MP4 / ISO-BMFF probe"]
+        AUD["@crex/audience<br/>deterministic insights"]
+    end
+
+    UI -- "HTTP / JSON" --> API
+    API --> WF
+    API --> D1
+    API --> R2
+    API --> NV
+    NV -. "on failure" .-> OR
+    OR -. "legacy path" .-> MI
+    API --> C2
+    C2 --> R2
+    WF --> D1
+    WF --> R2
+    API --- SCH
+    API --- MED
+    API --- AUD
+```
+
+### Tech Stack
 
 | Layer | Technology |
-|-------|-----------|
+|---|---|
 | Frontend | Next.js + TypeScript + Tailwind CSS |
 | Deployment | Cloudflare Pages / Workers |
 | Database | Cloudflare D1 (SQLite) |
@@ -52,230 +166,321 @@ PUBLISH
 | Background Processing | Cloudflare Workflows |
 | AI (Primary) | NVIDIA (OpenAI-compatible API) |
 | AI (Fallback) | OpenRouter (OpenAI-compatible API) |
-| AI (Legacy/provider) | Mistral |
+| AI (Legacy) | Mistral |
 | Vector Search | Cloudflare Vectorize + LanceDB (local) |
-| Media Processing | FFmpeg (planned); Wave 3: in-process MP4 probe (`@crex/media`) |
+| Media Processing | In-process MP4/ISO-BMFF probe (`@crex/media`); FFmpeg planned |
 | Speech Fallback | WhisperX / faster-whisper |
-| Provenance | C2PA Python SDK |
+| Provenance | C2PA Python SDK (`c2pa-python==0.37.10`) |
 | Schemas | Zod (TS) + Pydantic (deferred) |
-| Testing | Vitest (Wave 1); Playwright + pytest later |
+| Testing | Vitest; Playwright + pytest later |
 | CI | GitHub Actions |
 
 ---
 
-## Repository Structure
+## 📸 Screenshots
+
+<!--
+  Drop your screenshots into a `docs/images/` folder at the repo root and
+  update the file names below to match. Suggested size: 1200×750px, PNG or WebP.
+-->
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+**Upload UI** — `GET /sources/ui`
+<br/>
+<img src="docs/images/upload-ui.png" alt="Crex minimal upload UI with progress bar" width="100%"/>
+
+</td>
+<td width="50%" valign="top">
+
+**Ingestion Status** — `GET /sources/:uploadId`
+<br/>
+<img src="docs/images/source-status.png" alt="Source ingestion status polling response" width="100%"/>
+
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+**Provenance Verification** — `GET /provenance/verify`
+<br/>
+<img src="docs/images/provenance-verify.png" alt="C2PA provenance verification result" width="100%"/>
+
+</td>
+<td width="50%" valign="top">
+
+**Release Passport** — `POST /passports`
+<br/>
+<img src="docs/images/release-passport.png" alt="Release Passport response with dimension scores" width="100%"/>
+
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+**Audience Context** — `GET /audience/context`
+<br/>
+<img src="docs/images/audience-context.png" alt="Audience context with insights and recommendations" width="100%"/>
+
+</td>
+<td width="50%" valign="top">
+
+**Live Worker Health** — `GET /health`
+<br/>
+<img src="docs/images/health-check.png" alt="Worker health check showing db, r2, and workflow bindings true" width="100%"/>
+
+</td>
+</tr>
+</table>
+
+---
+
+## 🧩 Feature Modules
+
+<table>
+<tr><td width="70">🎬</td><td>
+
+**Source Ingestion — Wave 3**
+`COMPLETE + VERIFIED LIVE`
+
+Upload → R2 → D1 → media validation → `SourceAsset` → workflow ingestion → `READY`. Includes a hard size cap, in-flight SHA-256 hashing, MP4/ISO-BMFF probing without FFmpeg, and a minimal upload UI.
+
+</td></tr>
+<tr><td>🔏</td><td>
+
+**Provenance Foundation — Wave 13**
+`COMPLETE + TESTED`
+
+A frozen `ProvenanceRecord` contract, real signed C2PA embedding/verification via the official Python SDK, and an **honest trust model** — an unanchored signature is reported `Valid` but `signature_trusted=false`, never faked as trusted.
+
+</td></tr>
+<tr><td>👥</td><td>
+
+**Audience Context + Learning — Wave 14**
+`IMPLEMENTED + TESTED`
+
+Deterministic (no-AI) aggregation of audience facts into profiles, insights (`DIVERGENCE`, `GAP`, `DATA_INSUFFICIENT`), and recommendations (`ACKNOWLEDGE_LIMITS`, `SPLIT`, `EXPAND`).
+
+</td></tr>
+<tr><td>🔧</td><td>
+
+**Repair Engine + Re-verification — Wave 10/11**
+`IMPLEMENTED`
+
+Deterministic `PROPOSED` repair actions for verification failures, with a `/reverify` path that applies fixes and re-runs the verifier for real.
+
+</td></tr>
+<tr><td>🛂</td><td>
+
+**Release Passport — Wave 12**
+`IMPLEMENTED + TESTED`
+
+Compiles the latest verification + provenance state into a versioned snapshot: `release_status` (`DRAFT`/`BLOCKED`/`READY`), `watch_status`, an `overall_score`, and four dimension scores. **No `READY` while provenance isn't `VALID`.**
+
+</td></tr>
+<tr><td>🛡️</td><td>
+
+**Hardening — Waves 17–19**
+`COMPLETE + INTEGRATED`
+
+Threat model, verification scoping, a 33/33 adversarial benchmark suite, the deterministic real-signed C2PA path, a deploy runbook, a CORS layer, and CI — all wired in, not bolted on.
+
+</td></tr>
+</table>
+
+---
+
+## 📁 Repository Structure
 
 ```text
 Crex/
 ├── apps/
 │   └── worker/               # Cloudflare Worker: Workflows + D1 + R2 + HTTP API
 ├── packages/
-│   ├── schemas/              # Frozen contract schemas (18), types, registry
-│   ├── db/                   # D1-compatible SQLite: migrations + data-access
-│   ├── core/                 # Config/env loader, ApiError, logger, workflow state
-│   ├── ai/                   # NVIDIA (primary) + OpenRouter (fallback); Mistral legacy
-│   ├── infra/                # D1/R2 adapters over the @crex/db seam
-│   ├── media/                # MP4 probe, media validation, incremental SHA-256, fixtures
-│   ├── c2pa/                 # C2PA provenance: manifest build/verify + Python CLI gateway
-│   ├── audience/             # Deterministic audience aggregation/insights/recommendations
-│   └── tests/                # Fixtures, contract conformance, db integration
+│   ├── schemas/               # Frozen contract schemas (18), types, registry
+│   ├── db/                    # D1-compatible SQLite: migrations + data-access
+│   ├── core/                  # Config/env loader, ApiError, logger, workflow state
+│   ├── ai/                    # NVIDIA (primary) + OpenRouter (fallback); Mistral legacy
+│   ├── infra/                 # D1/R2 adapters over the @crex/db seam
+│   ├── media/                 # MP4 probe, media validation, incremental SHA-256, fixtures
+│   ├── c2pa/                  # C2PA provenance: manifest build/verify + Python CLI gateway
+│   ├── audience/               # Deterministic audience aggregation/insights/recommendations
+│   └── tests/                  # Fixtures, contract conformance, db integration
 ├── docs/
 │   ├── engineering-baseline.md
-│   └── implementation/       # Wave 0 audits + decision records
-├── Project Spec/             # Authoritative specifications
-├── AGENTS.md                 # Engineering operating system
-└── progress.md               # Operational progress record
+│   └── implementation/        # Wave 0 audits + decision records
+├── Project Spec/               # Authoritative specifications
+├── AGENTS.md                   # Engineering operating system
+└── progress.md                 # Operational progress record
 ```
-
-## Frozen Contracts
-
-`Project, SourceAsset, TranscriptSegment, Claim, Evidence, GeneratedAsset, GeneratedComponent, VerificationRun, VerificationFinding, WorkflowState, Constraint, SponsorRequirement, RepairAction, ReleasePassport, ProvenanceRecord, ApiResponse, AiOutput, ApiError`.
-
-Deferred (registry-documented, no code yet): `PerformanceObservation`, `LearningRecord` (later wave).
-
-**Wave 14 audience contracts** (implemented via deep imports in `packages/schemas/src/audience.ts`): `AudienceProfile`, `AudienceObservation`, `AudienceInsight`, `AudienceRecommendation`, `AudienceContext`.
 
 ---
 
-## Provenance (Wave 13)
+## 🔒 Frozen Contracts
 
-Wave 13 lays the provenance foundation: an internal `ProvenanceRecord` contract plus C2PA manifest build/verify tooling, wired into the worker API. Internal provenance records and external C2PA media provenance stay separate concepts (per `Architecture & Techstack.md` §16–17).
+All API and database shapes are locked behind Zod contracts in `@crex/schemas` — nothing crosses a package boundary without validation.
 
-### Data model (`Packages/schemas` + `packages/db`)
+| Category | Contracts |
+|---|---|
+| Project & Source | `Project`, `SourceAsset`, `TranscriptSegment` |
+| Evidence & Claims | `Claim`, `Evidence` |
+| Generated Content | `GeneratedAsset`, `GeneratedComponent` |
+| Verification | `VerificationRun`, `VerificationFinding` |
+| Constraints | `Constraint`, `SponsorRequirement` |
+| Repair & Release | `RepairAction`, `ReleasePassport` |
+| Provenance | `ProvenanceRecord` |
+| System / API | `WorkflowState`, `ApiResponse`, `AiOutput`, `ApiError` |
 
-- Frozen `ProvenanceRecord`: `project_id`, `asset_id`, `asset_sha256` (hex, `sha256HexSchema`), `signing_status` (`UNSIGNED`/`SIGNED`/`FAILED`), `verification_status` (`VALID`/`INVALID`/`UNSIGNED`/`UNTRUSTED`/`MISSING`), nullable `manifest`/`signer`/`verification_details` JSON, timestamps.
-- Migration `0010_provenance.sql`: `provenance_records` table (unique asset, FK → `projects`, indexes on `asset_id`/`project_id`, CHECK constraints).
-- `ProvenanceRepository` (`packages/db`): provision, fetch by id/asset, latest-by-asset, set manifest/signing/verification status, list by project.
+**Wave 14 audience contracts** (deep imports in `packages/schemas/src/audience.ts`): `AudienceProfile`, `AudienceObservation`, `AudienceInsight`, `AudienceRecommendation`, `AudienceContext`.
 
-### C2PA tooling (`@crex/c2pa`)
-
-TypeScript, fully unit-tested (21 tests):
-
-- `buildManifest` — constructs a C2PA manifest with a `c2pa.crex_provenance` assertion (asset id + sha256 + linked record), plus `c2pa.asset_id`, `dc.title`, `dc.created`; optional ingredients (content → source mapping).
-- `verifyManifest` — deterministic validation of an extracted manifest: `VALID` (hash + record match), `INVALID` (hash mismatch / malformed), `UNSIGNED` (no Crex assertion), `UNTRUSTED` (unknown signer), `MISSING` (no manifest).
-- `invokePythonCli` — gateway to `python/cli.py` (`embed`/`verify`) for real signed embedding; `verify` accepts an optional `trustAnchors` path (passed through as `--trust-anchors`).
-
-### Worker API (`apps/worker`)
-
-```text
-POST /provenance/records        provision a record; hashes the real R2 asset bytes (sha256), persists UNSIGNED
-GET  /provenance/records/:id    fetch a record
-GET  /provenance/verify?assetId=[&recordId=]   re-hash R2 bytes → C2PA verify → VALID/INVALID/UNSIGNED/UNTRUSTED/MISSING
-```
-
-The verify path always re-reads and re-hashes the actual R2 object — it never trusts stored hashes. Every response is an `ApiResponse` envelope; hashing failures surface as explicit errors (never fake success).
-
-### Honest C2PA trust model
-
-Real signed embedding (`c2pa-python==0.37.10`) is installed and working on this build machine. Empirically verified with a real EC signing chain (root → intermediate → leaf) generated by `openssl`:
-
-- A signed PNG verifies with state `Valid`, `signature_valid=true`, `signature_trusted=false`, reporting `signingCredential.untrusted` — an unanchored signature is never presented as trusted.
-- Supplying the root CA via `--trust-anchors <root.pem>` makes the same asset verify with state `Trusted`, `signature_valid=true`, `signature_trusted=true`.
-- Embedding without a signer exits non-zero with an explicit error; the CLI never fabricates a manifest, signature, or verification result.
-
-The TS manifest build/verify logic is unit-tested, and the integration suite exercises the real signed path (embed + plain verify + anchored verify) rather than skipping it.
+**Deferred** (registry-documented, no code yet): `PerformanceObservation`, `LearningRecord`.
 
 ---
 
-## Audience Context + Learning (Wave 14)
+## 🌐 API Reference
 
-Builds a reusable audience-context and learning subsystem on top of the project brief.
+### Core
 
-```text
-POST /audience/profiles         create a named audience profile (facts tagged CREATOR_DECLARED/OBSERVED/INFERRED)
-GET  /audience/profiles?projectId=
-GET  /audience/profiles/:id
-POST /audience/observations     record an observation (idempotent via project+dedupeKey)
-GET  /audience/observations?projectId=
-POST /audience/compute          deterministic aggregate → insights → recommendations, persisted
-GET  /audience/context?projectId=   assembled primary/complementary profiles + insights + recommendations
-```
+| Method | Path | Behavior |
+|---|---|---|
+| `GET` | `/health` | Bindings + config status |
+| `POST` | `/ai/analyze` | Generate → validate → persist an `AiOutput` (`SEMANTIC_UNDERSTANDING` only; `503` without an API key) |
+| `POST` | `/workflows/source-to-release` | Create + run a workflow instance (`{projectId, id?, sourceId?}`) |
+| `GET` | `/workflows/source-to-release/:id` | Instance status/phase |
 
-- **Deterministic core** lives in `@crex/audience` (no AI): `aggregateProfile` picks the highest-priority/confidence observation per metric; `computeInsights` emits `AGGREGATED_PROFILE` / `DIVERGENCE` / `GAP` / `DATA_INSUFFICIENT`; `generateRecommendations` emits `ACKNOWLEDGE_LIMITS` / `SPLIT` / `EXPAND`. AI interpretation is intentionally kept separate (deterministic-first rule).
-- **Storage:** migration `0011_audience.sql` + four repositories in `packages/db`.
-- `POST /audience/compute` recomputes and persists a fresh profile, insights, and recommendations for a project (deterministic and repeatable).
+### Source Ingestion
+
+| Method | Path | Behavior |
+|---|---|---|
+| `POST` | `/sources` | Create an upload session (`201`) |
+| `PUT` | `/sources/:uploadId/blob` | Stream blob to R2 (size-capped, media-validated; `200` `VALID`/`INVALID`) |
+| `GET` | `/sources/:uploadId` | Poll upload/source status |
+| `GET` | `/sources?projectId=` | List sources for a project |
+| `GET` | `/sources/ui` | Minimal upload UI (XHR progress + 800ms polling) |
+
+### Provenance
+
+| Method | Path | Behavior |
+|---|---|---|
+| `POST` | `/provenance/records` | Provision a record from real R2 bytes (SHA-256, `UNSIGNED`) |
+| `GET` | `/provenance/records/:id` | Fetch a provenance record |
+| `GET` | `/provenance/verify` | Re-hash R2 bytes + C2PA verify → `VALID`/`INVALID`/`UNSIGNED`/`UNTRUSTED`/`MISSING` |
+
+### Audience Context
+
+| Method | Path | Behavior |
+|---|---|---|
+| `POST` | `/audience/profiles` | Create a named audience profile |
+| `GET` | `/audience/profiles?projectId=` | List profiles |
+| `POST` | `/audience/observations` | Record an observation (idempotent) |
+| `GET` | `/audience/observations?projectId=` | List observations |
+| `POST` | `/audience/compute` | Deterministic aggregate → insights → recommendations |
+| `GET` | `/audience/context?projectId=` | Assembled audience context |
+
+### Repair, Re-verification & Release Passport
+
+| Method | Path | Behavior |
+|---|---|---|
+| `POST` | `/repair` | Create `PROPOSED` repair actions for a verified asset |
+| `POST` | `/repair/:actionId/apply` | Apply a proposed repair action |
+| `POST` | `/reverify` | Apply all proposed repairs, then re-run the verifier |
+| `GET` | `/repair/actions?assetId=` | List repair actions for an asset |
+| `GET` | `/repair/actions?runId=` | List repair actions tied to a verification run |
+| `POST` | `/passports` | Create a Release Passport snapshot (`{projectId, assetId}`) |
+| `GET` | `/passports?projectId=` | List a project's passports |
+| `GET` | `/passports/:id` | Fetch a passport by id |
+| `GET` | `/passports/:assetId/latest` | Fetch the latest passport for an asset |
 
 ---
 
-## Source Ingestion (Wave 3)
+## 🚀 Getting Started
 
-The implemented ingestion flow:
-
-```text
-POST /sources                        create upload session (201, status UPLOADING)
-  ↓
-PUT /sources/:uploadId/blob          stream body to R2 + in-flight SHA-256 + size cap
-                                     → @crex/media validates → VALID / INVALID (200)
-  ↓
-GET /sources/:uploadId               poll upload/source status
-GET /sources?projectId=<uuid>        list a project's sources
-GET /sources/ui                      minimal upload UI
-  ↓
-POST /workflows/source-to-release    {projectId, sourceId} → SourceToReleaseWorkflow
-                                     → ingest-source-asset → SourceAsset READY
-```
-
-- **Upload:** `POST /sources` returns a session; the file streams to R2 with an in-flight SHA-256 and a hard size cap (`SOURCE_MAX_SIZE_BYTES`, 100 MiB default) — oversize, or a body whose byte count does not match the declared `content-length`, returns `413` and marks the session `FAILED`.
-- **Validation:** `@crex/media` probes MP4/ISO-BMFF boxes without FFmpeg (container via `ftyp`, duration via `mdhd`/`mvhd`, video codec + width/height via `trak`/`stsd`, audio codec). `validateMediaFile` rejects empty/oversized/unsupported/stream-less files with an `INVALID` status and a reason.
-- **State:** a `SourceAsset` row persists `status`, `media`, `size_bytes`, and `checksum` (`sha256:`). Lifecycle `UPLOADING → UPLOADED → VALIDATING → VALID/INVALID → PROCESSING → READY` is enforced by `SOURCE_STATE_TRANSITIONS` in `packages/db/src/repositories/source-assets.ts`.
-- **Storage:** objects are stored at `sources/{projectId}/{uploadId}-{safeName}`; filenames are validated (no path separators, `..`, NUL, or control bytes).
-- **Workflow:** `POST /workflows/source-to-release` (body `{projectId, id?, sourceId?}`) runs `SourceToReleaseWorkflow`: `bootstrap → running → verify-infrastructure → ingest-source-asset → record-completion` (`COMPLETED`). The ingest step re-verifies the R2 object's size and streams it re-hashing SHA-256 against the stored checksum, then `VALID → PROCESSING → READY`; a size/hash mismatch marks the source `FAILED` and aborts with `SOURCE_CHECKSUM_MISMATCH` (409). Without `sourceId` the step is `SKIPPED`.
-- **AI status:** `POST /ai/analyze` runs only the wired `SEMANTIC_UNDERSTANDING` task through `@crex/ai` (NVIDIA primary → OpenRouter fallback). A real NVIDIA `NVIDIA_API_KEY` and OpenRouter `OPENROUTER_API_KEY` are provisioned; the live route is verified end-to-end via OpenRouter fallback and persists an `AiOutput` to remote D1. Without any provider key it returns `503 AI_NOT_CONFIGURED` (honest gating).
-
-### Current limitations
-
-- The `INVALID` validation reason is returned in the API/UI but not persisted on the source row.
-- Worker routes have no auth or rate limiting yet (prototype scope).
-- Media validation is MP4/ISO-BMFF-focused; other containers are rejected as unsupported.
-- Live AI fallback is OpenRouter (verified); the configured NVIDIA model (`meta/llama-3.3-70b-instruct`) is end-of-life so live calls fall back to OpenRouter. Without any provider key the AI route returns `503 AI_NOT_CONFIGURED` (honest gating).
-
-### Live deployment
-
-- **D1:** production database `crex` (`database_id b01526fc-40b4-4024-8616-b2fb6099d94d`) in `apps/worker/wrangler.jsonc`; migrations `0001`–`0011` all applied remotely (`npx wrangler d1 migrations list crex --remote` reports no pending migrations).
-- **R2:** bucket `crex-media` created, bound as `MEDIA`.
-- **Worker:** deployed to <code>https://crex-worker.loujanb2008.workers.dev</code> (bindings `DB`, `MEDIA`, `SOURCE_TO_RELEASE`, AI `vars`).
-- **Verified:** a live upload → `POST /sources` 201 → `PUT /sources/:id/blob` 200 `VALID` (real R2 write + D1 insert) → poll `VALID` → `POST /workflows/source-to-release` → source `READY`; the remote `source_assets` row was read back as `READY` (998 B, checksum match) directly from D1. Re-confirmed live this session: `/health` 200 with db/r2/workflow true, active deployment `1afc0f7f` at 100%.
-- **Runbook:** see `docs/implementation/deploy-runbook.md` for the full deployment/migration/rollback runbook, the SAFE vs DESTRUCTIVE command table, and CORS/Pages guidance.
-
-## Development Setup
-
-Requires Node ≥ 24, pnpm ≥ 11.
+**Requires:** Node ≥ 24, pnpm ≥ 11
 
 ```bash
+# 1. Install dependencies
 pnpm install
-```
 
-### Worker — local run & AI provisioning
+# 2. Configure at least one AI provider key
+cp apps/worker/.dev.vars.example apps/worker/.dev.vars
+# fill in NVIDIA_API_KEY, OPENROUTER_API_KEY, and/or MISTRAL_API_KEY
 
-AI output is generated via `POST /ai/analyze`. It needs at least one AI provider key. Copy `apps/worker/.dev.vars.example` to `apps/worker/.dev.vars` and fill in `NVIDIA_API_KEY`, `OPENROUTER_API_KEY`, and/or `MISTRAL_API_KEY` (NVIDIA is primary, OpenRouter is the active fallback). Provider defaults (base URL, model, timeout, retries) can be overridden through worker vars — see `apps/worker/wrangler.jsonc`.
-
-```bash
-pnpm --filter @crex/worker dev       # runs `wrangler dev` (or: cd apps/worker && npx wrangler dev)
-```
-
-Before first run (or after a schema change), apply migrations to local D1:
-
-```bash
+# 3. Apply migrations to local D1
 cd apps/worker
 npx wrangler d1 migrations apply crex --local
+
+# 4. Run the worker locally
+pnpm --filter @crex/worker dev
 ```
 
-To apply migrations to the live (remote) D1 database and deploy the Worker:
+### Deploying to production
 
 ```bash
 cd apps/worker
 npx wrangler d1 migrations apply crex --remote
-npx wrangler deploy        # or: cd apps/worker && npm run deploy
+npx wrangler deploy
 ```
 
-> Note: `pnpm --filter @crex/worker deploy` is not usable because pnpm treats `deploy` as a reserved subcommand; use `npx wrangler deploy` from `apps/worker` instead.
+> ⚠️ `pnpm --filter @crex/worker deploy` won't work — pnpm reserves `deploy` as a subcommand. Use `npx wrangler deploy` from `apps/worker` instead.
 
-Migrations live in `packages/db/migrations` (`wrangler.jsonc` points `migrations_dir` there). They run **wrangler-side**, not inside the worker (`node:fs` is unavailable in workerd) — see `docs/implementation/decision-workflow-migrations.md`.
-
-Worker `vars` (defaults in `apps/worker/wrangler.jsonc`) cover AI provider config (`NVIDIA_BASE_URL`, `NVIDIA_MODEL`, `MISTRAL_BASE_URL`, `MISTRAL_MODEL`, `OPENROUTER_BASE_URL`, `OPENROUTER_MODEL`, `AI_TIMEOUT_MS`, `AI_MAX_RETRIES`, `AI_RETRY_BASE_DELAY_MS`) and the upload size cap `SOURCE_MAX_SIZE_BYTES` (100 MiB).
-
-### Worker routes
-
-| Method | Path | Behavior |
-|--------|------|----------|
-| GET | `/health` | Bindings + config status |
-| POST | `/workflows/source-to-release` | Create + run a workflow instance (`{projectId, id?, sourceId?}`) |
-| GET | `/workflows/source-to-release/:id` | Instance status/phase |
-| POST | `/ai/analyze` | Generate → validate → persist an `AiOutput` (`SEMANTIC_UNDERSTANDING` only; `503` without API keys) |
-| POST | `/sources` | Create an upload session (201) |
-| PUT | `/sources/:uploadId/blob` | Stream blob to R2 (size-capped, media-validated; 200 `VALID`/`INVALID`) |
-| GET | `/sources/:uploadId` | Poll upload/source status |
-| GET | `/sources?projectId=` | List sources for a project |
-| GET | `/sources/ui` | Minimal upload UI (XHR progress + 800 ms polling) |
-| POST | `/provenance/records` | Provision a provenance record from real R2 bytes (sha256, `UNSIGNED`) |
-| GET | `/provenance/records/:id` | Fetch a provenance record |
-| GET | `/provenance/verify` | Re-hash R2 asset bytes + C2PA verify → `VALID`/`INVALID`/`UNSIGNED`/`UNTRUSTED`/`MISSING` |
-| POST | `/audience/profiles` | Create a named audience profile |
-| GET | `/audience/profiles?projectId=` | List profiles |
-| POST | `/audience/observations` | Record an observation (idempotent) |
-| GET | `/audience/observations?projectId=` | List observations |
-| POST | `/audience/compute` | Deterministic aggregate → insights → recommendations |
-| GET | `/audience/context?projectId=` | Assembled audience context |
-
-Without an AI key, `/ai/analyze` returns `503 AI_NOT_CONFIGURED` (honest gating); the configured path is covered end-to-end in tests with a stubbed fetch.
-
-`@crex/db` uses Node's experimental `node:sqlite` behind a `SqlDb` interface so Cloudflare D1 sits behind the same seam (`@crex/infra`).
-
-## Testing
-
-```bash
-pnpm -r typecheck   # strict TS across all packages (11/11 green)
-pnpm -r test        # Vitest across all workspaces (583 tests)
-```
-
-Coverage by workspace: `@crex/schemas` 154, `@crex/tests` 106, `@crex/db` 66, `@crex/infra` 37, `@crex/ai` 36, `@crex/media` 29, `@crex/c2pa` 21, `@crex/core` 18, `@crex/audience` 12, `apps/worker` 103.
+Migrations live in `packages/db/migrations` and run **wrangler-side** (not inside the worker — `node:fs` is unavailable in `workerd`). See `docs/implementation/decision-workflow-migrations.md`.
 
 ---
 
-## Documentation
+## 🧪 Testing
+
+```bash
+pnpm -r typecheck   # strict TS across all packages — 11/11 green
+pnpm -r test        # Vitest across all workspaces — 717 tests incl. 33 adversarial benchmarks
+```
+
+| Workspace | Tests |
+|---|---:|
+| `@crex/schemas` | 154 |
+| `@crex/tests` | 106 |
+| `@crex/db` | 67 |
+| `@crex/infra` | 37 |
+| `@crex/ai` | 36 |
+| `@crex/media` | 29 |
+| `@crex/c2pa` | 21 |
+| `@crex/core` | 20 |
+| `@crex/audience` | 12 |
+| `apps/worker` | 202 |
+| `benchmarks` (adversarial) | 33 |
+| **Total** | **717** |
+
+---
+
+## 🌍 Live Deployment
+
+| Resource | Detail |
+|---|---|
+| **Worker** | [`crex-worker.loujanb2008.workers.dev`](https://crex-worker.loujanb2008.workers.dev) |
+| **D1 Database** | `crex` — migrations `0001`–`0011` applied remotely, no pending migrations |
+| **R2 Bucket** | `crex-media`, bound as `MEDIA` |
+| **Bindings** | `DB`, `MEDIA`, `SOURCE_TO_RELEASE` |
+
+Verified end-to-end live: upload → `POST /sources` (`201`) → `PUT /sources/:id/blob` (`200 VALID`, real R2 write + D1 insert) → `POST /workflows/source-to-release` → source reaches `READY`, confirmed by reading the row back from remote D1.
+
+See `docs/implementation/deploy-runbook.md` for the full deploy/migration/rollback runbook and CORS/Pages guidance.
+
+---
+
+## ⚠️ Current Limitations
+
+- The `INVALID` validation reason is returned in the API/UI but not yet persisted on the source row.
+- Worker routes have no auth or rate limiting yet (prototype scope).
+- Media validation is MP4/ISO-BMFF-focused; other containers are rejected as unsupported.
+- The configured NVIDIA model (`meta/llama-3.3-70b-instruct`) is end-of-life, so live AI calls currently fall back to OpenRouter. Without any provider key, `/ai/analyze` returns `503 AI_NOT_CONFIGURED` (honest gating, not a silent failure).
+
+---
+
+## 📚 Documentation
 
 | Document | Location |
-|----------|----------|
+|---|---|
 | Engineering Operating System | `AGENTS.md` |
 | Hackathon Requirements | `Project Spec/Hackathon details & requirements.md` |
 | Product Specification | `Project Spec/Idea.md` |
@@ -286,12 +491,14 @@ Coverage by workspace: `@crex/schemas` 154, `@crex/tests` 106, `@crex/db` 66, `@
 
 ---
 
-## License
+## 📄 License
 
 Not yet determined.
 
----
+## 🙏 Acknowledgments
 
-## Acknowledgments
+Built for the **AI Content Engine Hackathon** (September 2026).
 
-Built for the AI Content Engine Hackathon (September 2026).
+<div align="center">
+<sub>Made with 🛡️ by the Crex team</sub>
+</div>
